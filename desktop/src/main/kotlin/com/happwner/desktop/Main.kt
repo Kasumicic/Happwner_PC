@@ -1,0 +1,298 @@
+package com.happwner.desktop
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Tray
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.application
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import com.happwner.BindMode
+import com.happwner.Subscription
+
+fun main(args: Array<String>) = application {
+    val viewModel = remember { AppViewModel() }
+    var visible by remember { mutableStateOf("--minimized" !in args) }
+    val text = strings(viewModel.state.settings.language)
+    val icon = rememberVectorPainter(Icons.Default.Dns)
+
+    DisposableEffect(Unit) {
+        onDispose { viewModel.close() }
+    }
+
+    Tray(icon = icon, tooltip = text.title, menu = {
+        Item(text.open, onClick = { visible = true })
+        Separator()
+        Item(text.exit, onClick = {
+            viewModel.close()
+            exitApplication()
+        })
+    })
+
+    Window(
+        title = text.title,
+        icon = icon,
+        visible = visible,
+        onCloseRequest = { visible = false },
+    ) {
+        MaterialTheme {
+            AppScreen(viewModel)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppScreen(viewModel: AppViewModel) {
+    val state = viewModel.state
+    val text = strings(state.settings.language)
+    var edited by remember { mutableStateOf<Subscription?>(null) }
+    var adding by remember { mutableStateOf(false) }
+    var portText by remember(state.settings.port) { mutableStateOf(state.settings.port.toString()) }
+    val clipboard = LocalClipboardManager.current
+
+    Scaffold(topBar = {
+        TopAppBar(
+            title = { Text(text.title) },
+            actions = {
+                TextButton(onClick = {
+                    val language = if (state.settings.language == "ru") "en" else "ru"
+                    viewModel.updateSettings(state.settings.copy(language = language))
+                }) { Text(if (state.settings.language == "ru") "EN" else "RU") }
+            },
+        )
+    }) { padding ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(text.server, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                if (viewModel.serverRunning) "${text.running}: ${viewModel.activeBaseUrl()}" else text.stopped,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                        Switch(
+                            checked = state.settings.serverEnabled,
+                            onCheckedChange = { viewModel.updateSettings(state.settings.copy(serverEnabled = it)) },
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = state.settings.bindMode == BindMode.LAN,
+                            onCheckedChange = {
+                                viewModel.updateSettings(state.settings.copy(bindMode = if (it) BindMode.LAN else BindMode.LOCAL))
+                            },
+                        )
+                        Text(text.lanMode)
+                        Spacer(Modifier.width(20.dp))
+                        OutlinedTextField(
+                            value = portText,
+                            onValueChange = { portText = it.filter(Char::isDigit).take(5) },
+                            label = { Text(text.port) },
+                            singleLine = true,
+                            modifier = Modifier.width(130.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Button(onClick = {
+                            portText.toIntOrNull()?.takeIf { it in 1024..65535 }?.let {
+                                viewModel.updateSettings(state.settings.copy(port = it))
+                            }
+                        }) { Text(text.apply) }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = state.settings.launchAtLogin,
+                            onCheckedChange = {
+                                viewModel.updateSettings(state.settings.copy(launchAtLogin = it), updateAutostart = true)
+                            },
+                        )
+                        Text(text.autostart)
+                    }
+                    if (state.settings.bindMode == BindMode.LAN) {
+                        Text(text.lanWarning, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        val addresses = NetworkAddresses.privateIpv4()
+                        if (addresses.isNotEmpty()) Text(addresses.joinToString("  •  ") { "http://$it:${state.settings.port}" })
+                    }
+                    viewModel.serverError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("${text.server}: ${state.subscriptions.size}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Button(onClick = { adding = true }) {
+                    Icon(Icons.Default.Add, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(text.add)
+                }
+            }
+            HorizontalDivider()
+            if (state.subscriptions.isEmpty()) {
+                Text(text.empty, modifier = Modifier.padding(16.dp))
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(state.subscriptions, key = { it.id }) { subscription ->
+                        SubscriptionCard(
+                            subscription = subscription,
+                            baseUrl = viewModel.activeBaseUrl(),
+                            text = text,
+                            onCopy = { clipboard.setText(AnnotatedString("${viewModel.activeBaseUrl()}/sub/${subscription.id}")) },
+                            onEdit = { edited = subscription },
+                            onDelete = { viewModel.deleteSubscription(subscription.id) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (adding || edited != null) {
+        SubscriptionDialog(
+            initial = edited,
+            text = text,
+            onDismiss = { adding = false; edited = null },
+            onSave = {
+                viewModel.saveSubscription(it)
+                adding = false
+                edited = null
+            },
+        )
+    }
+}
+
+@Composable
+private fun SubscriptionCard(
+    subscription: Subscription,
+    baseUrl: String,
+    text: UiStrings,
+    onCopy: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(subscription.name, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "$baseUrl/sub/${subscription.id}",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            IconButton(onClick = onCopy) { Icon(Icons.Default.ContentCopy, text.copy) }
+            IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, text.edit) }
+            IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, text.delete) }
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionDialog(
+    initial: Subscription?,
+    text: UiStrings,
+    onDismiss: () -> Unit,
+    onSave: (Subscription) -> Unit,
+) {
+    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
+    var source by remember { mutableStateOf(initial?.source.orEmpty()) }
+    var hwid by remember { mutableStateOf(initial?.hwid.orEmpty()) }
+    var userAgent by remember { mutableStateOf(initial?.userAgent ?: "Happ/1.0") }
+    var enabled by remember { mutableStateOf(initial?.enabled ?: true) }
+    var decodeBase64 by remember { mutableStateOf(initial?.decodeBase64 ?: false) }
+    var jsonToUri by remember { mutableStateOf(initial?.jsonToUri ?: false) }
+    var xrayToSingBox by remember { mutableStateOf(initial?.xrayToSingBox ?: false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial == null) text.add else text.edit) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text(text.name) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(source, { source = it }, label = { Text(text.source) }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(hwid, { hwid = it }, label = { Text("HWID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(userAgent, { userAgent = it }, label = { Text(text.ua) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                CheckRow(enabled, { enabled = it }, text.enabled)
+                CheckRow(decodeBase64, { decodeBase64 = it }, text.decodeBase64)
+                CheckRow(jsonToUri, { jsonToUri = it }, text.jsonToUri)
+                CheckRow(xrayToSingBox, { xrayToSingBox = it }, text.xrayToSingBox)
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = name.isNotBlank() && source.isNotBlank(),
+                onClick = {
+                    onSave(
+                        Subscription(
+                            id = initial?.id ?: java.util.UUID.randomUUID().toString(),
+                            name = name.trim(),
+                            source = source.trim(),
+                            hwid = hwid.trim(),
+                            userAgent = userAgent.trim(),
+                            enabled = enabled,
+                            decodeBase64 = decodeBase64,
+                            jsonToUri = jsonToUri,
+                            xrayToSingBox = xrayToSingBox,
+                        ),
+                    )
+                },
+            ) { Text(text.save) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(text.cancel) } },
+    )
+}
+
+@Composable
+private fun CheckRow(checked: Boolean, onChecked: (Boolean) -> Unit, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked, onChecked)
+        Text(label)
+    }
+}
