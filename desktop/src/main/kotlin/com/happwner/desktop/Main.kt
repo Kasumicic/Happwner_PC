@@ -62,6 +62,12 @@ fun main(args: Array<String>) = application {
     val icon = rememberVectorPainter(Icons.Default.Dns)
     val exiting = remember { AtomicBoolean(false) }
     val nativeWindow = remember { AtomicReference<AwtWindow?>() }
+    val hideWindow: () -> Unit = {
+        // Hide the AWT window immediately, before Compose changes its visibility.
+        // This prevents KDE from animating a maximized window to restored bounds.
+        nativeWindow.get()?.isVisible = false
+        visible = false
+    }
     val requestExit: () -> Unit = {
         if (exiting.compareAndSet(false, true)) {
             val finishExit = {
@@ -95,7 +101,7 @@ fun main(args: Array<String>) = application {
         title = text.title,
         icon = icon,
         visible = visible,
-        onCloseRequest = { visible = false },
+        onCloseRequest = hideWindow,
     ) {
         DisposableEffect(window) {
             nativeWindow.set(window)
