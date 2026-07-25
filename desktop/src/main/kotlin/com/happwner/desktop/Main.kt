@@ -249,13 +249,22 @@ private fun SubscriptionCard(
                 checkState?.let {
                     Text(
                         checkResultText(it, text),
-                        color = if (it is SubscriptionCheckState.Error) {
+                        color = if (it is SubscriptionCheckState.Error || it is SubscriptionCheckState.NoProfiles) {
                             MaterialTheme.colorScheme.error
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                         style = MaterialTheme.typography.bodySmall,
                     )
+                    checkResponsePreview(it)?.takeIf(String::isNotBlank)?.let { preview ->
+                        Text(
+                            "${text.response}: $preview",
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             TextButton(
@@ -273,9 +282,20 @@ private fun checkResultText(state: SubscriptionCheckState, text: UiStrings): Str
     SubscriptionCheckState.Running -> text.checking
     is SubscriptionCheckState.Success -> {
         val source = state.statusCode?.let { "HTTP $it" } ?: text.localData
-        "${text.checkSuccess}: $source • ${formatBytes(state.sizeBytes)}"
+        val protocols = state.inspection.protocols.entries.joinToString { "${it.key}: ${it.value}" }
+        "${text.checkSuccess}: $source • ${formatBytes(state.sizeBytes)} • ${text.profiles}: ${state.inspection.profileCount} ($protocols)"
+    }
+    is SubscriptionCheckState.NoProfiles -> {
+        val source = state.statusCode?.let { "HTTP $it" } ?: text.localData
+        "$source • ${formatBytes(state.sizeBytes)} • ${text.noProfiles}"
     }
     is SubscriptionCheckState.Error -> "${text.checkFailed}: ${state.message}"
+}
+
+private fun checkResponsePreview(state: SubscriptionCheckState): String? = when (state) {
+    is SubscriptionCheckState.Success -> state.inspection.preview
+    is SubscriptionCheckState.NoProfiles -> state.preview
+    else -> null
 }
 
 private fun formatBytes(bytes: Int): String = when {

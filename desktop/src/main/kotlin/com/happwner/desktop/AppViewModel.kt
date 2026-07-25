@@ -12,7 +12,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 sealed interface SubscriptionCheckState {
     data object Running : SubscriptionCheckState
-    data class Success(val statusCode: Int?, val sizeBytes: Int) : SubscriptionCheckState
+    data class Success(
+        val statusCode: Int?,
+        val sizeBytes: Int,
+        val inspection: SubscriptionInspection,
+    ) : SubscriptionCheckState
+    data class NoProfiles(
+        val statusCode: Int?,
+        val sizeBytes: Int,
+        val preview: String,
+    ) : SubscriptionCheckState
     data class Error(val message: String) : SubscriptionCheckState
 }
 
@@ -61,10 +70,20 @@ class AppViewModel(
         checkExecutor.submit {
             val result = runCatching { subscriptionFetcher.fetch(subscription) }.fold(
                 onSuccess = {
-                    SubscriptionCheckState.Success(
-                        statusCode = it.statusCode,
-                        sizeBytes = it.body.size,
-                    )
+                    val inspection = SubscriptionInspector.inspect(it.body)
+                    if (inspection.profileCount > 0) {
+                        SubscriptionCheckState.Success(
+                            statusCode = it.statusCode,
+                            sizeBytes = it.body.size,
+                            inspection = inspection,
+                        )
+                    } else {
+                        SubscriptionCheckState.NoProfiles(
+                            statusCode = it.statusCode,
+                            sizeBytes = it.body.size,
+                            preview = inspection.preview,
+                        )
+                    }
                 },
                 onFailure = {
                     SubscriptionCheckState.Error(it.message ?: "Неизвестная ошибка")

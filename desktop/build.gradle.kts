@@ -15,7 +15,8 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
-    implementation("com.dorkbox:SystemTray:4.4")
+    implementation("com.github.hypfvieh:dbus-java-core:5.1.1")
+    implementation("com.github.hypfvieh:dbus-java-transport-native-unixsocket:5.1.1")
     testImplementation(kotlin("test"))
 }
 
@@ -28,7 +29,14 @@ compose.desktop {
             packageVersion = "0.1.0"
             description = "Local and home-network proxy subscription server"
             vendor = "Happwner contributors"
-            modules("java.base", "java.desktop", "java.net.http", "jdk.httpserver", "java.logging")
+            modules(
+                "java.base",
+                "java.desktop",
+                "java.net.http",
+                "jdk.httpserver",
+                "java.logging",
+                "jdk.security.auth",
+            )
             windows {
                 menuGroup = "Happwner PC"
                 shortcut = true

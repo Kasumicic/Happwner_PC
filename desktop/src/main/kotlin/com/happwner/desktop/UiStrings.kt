@@ -32,6 +32,9 @@ data class UiStrings(
     val checkSuccess: String,
     val localData: String,
     val checkFailed: String,
+    val profiles: String,
+    val noProfiles: String,
+    val response: String,
 )
 
 fun strings(language: String): UiStrings = if (language == "en") {
@@ -42,6 +45,7 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Decode Base64", "JSON to URI", "Xray to sing-box",
         "LAN mode has no authentication. Anyone on your home network who knows a subscription URL can read it.",
         "Open", "Exit", "Exit completely", "Test", "Testing…", "Available", "Local data", "Check failed",
+        "Profiles", "No supported profiles found", "Response",
     )
 } else {
     UiStrings(
@@ -51,5 +55,6 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Декодировать Base64", "JSON в URI", "Xray в sing-box",
         "В LAN-режиме нет авторизации. Любой участник домашней сети, знающий адрес подписки, сможет её получить.",
         "Открыть", "Выход", "Полностью выйти", "Проверить", "Проверяем…", "Доступна", "Локальные данные", "Ошибка проверки",
+        "Профили", "Поддерживаемые профили не найдены", "Ответ",
     )
 }
