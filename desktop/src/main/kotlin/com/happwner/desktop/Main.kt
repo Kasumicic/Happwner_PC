@@ -50,7 +50,10 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import com.happwner.BindMode
 import com.happwner.Subscription
+import java.awt.EventQueue
+import java.awt.Window as AwtWindow
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 fun main(args: Array<String>) = application {
     val viewModel = remember { AppViewModel() }
@@ -58,10 +61,17 @@ fun main(args: Array<String>) = application {
     val text = strings(viewModel.state.settings.language)
     val icon = rememberVectorPainter(Icons.Default.Dns)
     val exiting = remember { AtomicBoolean(false) }
-    val requestExit = {
+    val nativeWindow = remember { AtomicReference<AwtWindow?>() }
+    val requestExit: () -> Unit = {
         if (exiting.compareAndSet(false, true)) {
-            viewModel.close()
-            exitApplication()
+            val finishExit = {
+                // Hide the native window before Compose disposes it. Otherwise KDE can
+                // briefly animate a maximized window back to its restored bounds.
+                nativeWindow.getAndSet(null)?.isVisible = false
+                viewModel.close()
+                exitApplication()
+            }
+            if (EventQueue.isDispatchThread()) finishExit() else EventQueue.invokeLater(finishExit)
         }
     }
 
@@ -87,6 +97,10 @@ fun main(args: Array<String>) = application {
         visible = visible,
         onCloseRequest = { visible = false },
     ) {
+        DisposableEffect(window) {
+            nativeWindow.set(window)
+            onDispose { nativeWindow.compareAndSet(window, null) }
+        }
         MaterialTheme {
             AppScreen(viewModel, requestExit)
         }
