@@ -6,12 +6,14 @@ import com.happwner.StoredState
 import com.happwner.Subscription
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
+import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 class BridgeServerTest {
     @Test
@@ -65,6 +67,22 @@ class BridgeServerTest {
             assertEquals("{\"status\":\"ok\"}", response.body())
         } finally {
             bridge.close()
+        }
+    }
+
+    @Test
+    fun closeStopsServerAndReleasesPort() {
+        val port = freePort()
+        val bridge = BridgeServer(stateProvider = { StoredState() })
+
+        bridge.start(ServerSettings(port = port))
+        assertEquals(true, bridge.running)
+        bridge.close()
+
+        assertFalse(bridge.running)
+        ServerSocket().use { socket ->
+            socket.reuseAddress = true
+            socket.bind(InetSocketAddress("127.0.0.1", port))
         }
     }
 

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -44,31 +45,41 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import com.happwner.BindMode
 import com.happwner.Subscription
+import java.util.concurrent.atomic.AtomicBoolean
 
 fun main(args: Array<String>) = application {
     val viewModel = remember { AppViewModel() }
     var visible by remember { mutableStateOf("--minimized" !in args) }
     val text = strings(viewModel.state.settings.language)
     val icon = rememberVectorPainter(Icons.Default.Dns)
+    val exiting = remember { AtomicBoolean(false) }
+    val requestExit = {
+        if (exiting.compareAndSet(false, true)) {
+            viewModel.close()
+            exitApplication()
+        }
+    }
 
     DisposableEffect(Unit) {
         onDispose { viewModel.close() }
     }
 
-    Tray(icon = icon, tooltip = text.title, menu = {
-        Item(text.open, onClick = { visible = true })
-        Separator()
-        Item(text.exit, onClick = {
-            viewModel.close()
-            exitApplication()
-        })
-    })
+    DisposableEffect(text.open, text.exit) {
+        val tray = DesktopTray(
+            tooltip = text.title,
+            openLabel = text.open,
+            exitLabel = text.exit,
+            onOpen = { visible = true },
+            onExit = requestExit,
+        )
+        runCatching { tray.install() }
+        onDispose { tray.close() }
+    }
 
     Window(
         title = text.title,
@@ -77,14 +88,14 @@ fun main(args: Array<String>) = application {
         onCloseRequest = { visible = false },
     ) {
         MaterialTheme {
-            AppScreen(viewModel)
+            AppScreen(viewModel, requestExit)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AppScreen(viewModel: AppViewModel) {
+private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
     val state = viewModel.state
     val text = strings(state.settings.language)
     var edited by remember { mutableStateOf<Subscription?>(null) }
@@ -96,6 +107,11 @@ private fun AppScreen(viewModel: AppViewModel) {
         TopAppBar(
             title = { Text(text.title) },
             actions = {
+                TextButton(onClick = onExit) {
+                    Icon(Icons.AutoMirrored.Filled.ExitToApp, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(text.fullExit)
+                }
                 TextButton(onClick = {
                     val language = if (state.settings.language == "ru") "en" else "ru"
                     viewModel.updateSettings(state.settings.copy(language = language))
@@ -184,6 +200,8 @@ private fun AppScreen(viewModel: AppViewModel) {
                             baseUrl = viewModel.activeBaseUrl(),
                             text = text,
                             onCopy = { clipboard.setText(AnnotatedString("${viewModel.activeBaseUrl()}/sub/${subscription.id}")) },
+                            checkState = viewModel.subscriptionChecks[subscription.id],
+                            onCheck = { viewModel.checkSubscription(subscription) },
                             onEdit = { edited = subscription },
                             onDelete = { viewModel.deleteSubscription(subscription.id) },
                         )
@@ -213,6 +231,8 @@ private fun SubscriptionCard(
     baseUrl: String,
     text: UiStrings,
     onCopy: () -> Unit,
+    checkState: SubscriptionCheckState?,
+    onCheck: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -226,12 +246,42 @@ private fun SubscriptionCard(
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodySmall,
                 )
+                checkState?.let {
+                    Text(
+                        checkResultText(it, text),
+                        color = if (it is SubscriptionCheckState.Error) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
+            TextButton(
+                enabled = checkState !is SubscriptionCheckState.Running,
+                onClick = onCheck,
+            ) { Text(if (checkState is SubscriptionCheckState.Running) text.checking else text.check) }
             IconButton(onClick = onCopy) { Icon(Icons.Default.ContentCopy, text.copy) }
             IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, text.edit) }
             IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, text.delete) }
         }
     }
+}
+
+private fun checkResultText(state: SubscriptionCheckState, text: UiStrings): String = when (state) {
+    SubscriptionCheckState.Running -> text.checking
+    is SubscriptionCheckState.Success -> {
+        val source = state.statusCode?.let { "HTTP $it" } ?: text.localData
+        "${text.checkSuccess}: $source • ${formatBytes(state.sizeBytes)}"
+    }
+    is SubscriptionCheckState.Error -> "${text.checkFailed}: ${state.message}"
+}
+
+private fun formatBytes(bytes: Int): String = when {
+    bytes >= 1024 * 1024 -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
+    bytes >= 1024 -> "%.1f KB".format(bytes / 1024.0)
+    else -> "$bytes B"
 }
 
 @Composable

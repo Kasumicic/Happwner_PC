@@ -12,6 +12,7 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.TimeUnit
 
 class BridgeServer(
     private val stateProvider: () -> StoredState,
@@ -47,10 +48,13 @@ class BridgeServer(
 
     @Synchronized
     fun stop() {
-        server?.stop(1)
+        val activeServer = server
         server = null
-        executor?.shutdownNow()
+        val activeExecutor = executor
         executor = null
+        activeServer?.stop(0)
+        activeExecutor?.shutdownNow()
+        activeExecutor?.awaitTermination(2, TimeUnit.SECONDS)
     }
 
     override fun close() = stop()

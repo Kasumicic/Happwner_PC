@@ -6,16 +6,32 @@ import androidx.compose.runtime.setValue
 import com.happwner.ServerSettings
 import com.happwner.StoredState
 import com.happwner.Subscription
+import java.awt.EventQueue
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+
+sealed interface SubscriptionCheckState {
+    data object Running : SubscriptionCheckState
+    data class Success(val statusCode: Int?, val sizeBytes: Int) : SubscriptionCheckState
+    data class Error(val message: String) : SubscriptionCheckState
+}
 
 class AppViewModel(
     private val repository: StateRepository = StateRepository(),
+    private val subscriptionFetcher: SubscriptionFetcher = SubscriptionFetcher(),
 ) : AutoCloseable {
     var state by mutableStateOf(repository.load())
         private set
     var serverError by mutableStateOf<String?>(null)
         private set
+    var subscriptionChecks by mutableStateOf<Map<String, SubscriptionCheckState>>(emptyMap())
+        private set
 
     private val server = BridgeServer(stateProvider = { state })
+    private val checkExecutor = Executors.newCachedThreadPool { runnable ->
+        Thread(runnable, "happwner-subscription-check").apply { isDaemon = true }
+    }
+    private val closed = AtomicBoolean(false)
 
     val serverRunning: Boolean get() = server.running
 
@@ -35,7 +51,32 @@ class AppViewModel(
 
     fun deleteSubscription(id: String) = commit(
         state.copy(subscriptions = state.subscriptions.filterNot { it.id == id }),
-    )
+    ).also {
+        subscriptionChecks = subscriptionChecks - id
+    }
+
+    fun checkSubscription(subscription: Subscription) {
+        if (closed.get()) return
+        subscriptionChecks = subscriptionChecks + (subscription.id to SubscriptionCheckState.Running)
+        checkExecutor.submit {
+            val result = runCatching { subscriptionFetcher.fetch(subscription) }.fold(
+                onSuccess = {
+                    SubscriptionCheckState.Success(
+                        statusCode = it.statusCode,
+                        sizeBytes = it.body.size,
+                    )
+                },
+                onFailure = {
+                    SubscriptionCheckState.Error(it.message ?: "Неизвестная ошибка")
+                },
+            )
+            EventQueue.invokeLater {
+                if (!closed.get() && state.subscriptions.any { it.id == subscription.id }) {
+                    subscriptionChecks = subscriptionChecks + (subscription.id to result)
+                }
+            }
+        }
+    }
 
     fun updateSettings(settings: ServerSettings, updateAutostart: Boolean = false) {
         if (updateAutostart && settings.launchAtLogin != state.settings.launchAtLogin) {
@@ -67,5 +108,9 @@ class AppViewModel(
             .onFailure { serverError = "Не удалось сохранить настройки: ${it.message}" }
     }
 
-    override fun close() = server.close()
+    override fun close() {
+        if (!closed.compareAndSet(false, true)) return
+        server.close()
+        checkExecutor.shutdownNow()
+    }
 }

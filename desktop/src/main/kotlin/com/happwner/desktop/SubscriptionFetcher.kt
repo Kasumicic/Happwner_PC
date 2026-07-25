@@ -15,6 +15,7 @@ class UpstreamException(message: String, val timeout: Boolean = false) : Excepti
 data class FetchedSubscription(
     val body: ByteArray,
     val headers: Map<String, List<String>>,
+    val statusCode: Int?,
 )
 
 class SubscriptionFetcher {
@@ -32,7 +33,7 @@ class SubscriptionFetcher {
                 emptyMap(),
                 subscription,
             )
-            return FetchedSubscription(transformed.toByteArray(Charsets.UTF_8), emptyMap())
+            return FetchedSubscription(transformed.toByteArray(Charsets.UTF_8), emptyMap(), null)
         }
         val url = when (resolution) {
             is SourceResolver.Result.Success -> resolution.url
@@ -79,7 +80,11 @@ class SubscriptionFetcher {
         } catch (error: Exception) {
             throw UpstreamException(error.message ?: "Ошибка обработки подписки")
         }
-        return FetchedSubscription(transformed.toByteArray(Charsets.UTF_8), response.headers().map())
+        return FetchedSubscription(
+            body = transformed.toByteArray(Charsets.UTF_8),
+            headers = response.headers().map(),
+            statusCode = response.statusCode(),
+        )
     }
 
     companion object {

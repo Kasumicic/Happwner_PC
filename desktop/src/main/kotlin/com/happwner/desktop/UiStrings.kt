@@ -26,6 +26,12 @@ data class UiStrings(
     val lanWarning: String,
     val open: String,
     val exit: String,
+    val fullExit: String,
+    val check: String,
+    val checking: String,
+    val checkSuccess: String,
+    val localData: String,
+    val checkFailed: String,
 )
 
 fun strings(language: String): UiStrings = if (language == "en") {
@@ -35,7 +41,7 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Copy URL", "Cancel", "Save", "Name", "Source URL", "User-Agent", "Enabled",
         "Decode Base64", "JSON to URI", "Xray to sing-box",
         "LAN mode has no authentication. Anyone on your home network who knows a subscription URL can read it.",
-        "Open", "Exit",
+        "Open", "Exit", "Exit completely", "Test", "Testing…", "Available", "Local data", "Check failed",
     )
 } else {
     UiStrings(
@@ -44,6 +50,6 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Копировать URL", "Отмена", "Сохранить", "Название", "Исходная ссылка", "User-Agent", "Включена",
         "Декодировать Base64", "JSON в URI", "Xray в sing-box",
         "В LAN-режиме нет авторизации. Любой участник домашней сети, знающий адрес подписки, сможет её получить.",
-        "Открыть", "Выход",
+        "Открыть", "Выход", "Полностью выйти", "Проверить", "Проверяем…", "Доступна", "Локальные данные", "Ошибка проверки",
     )
 }
