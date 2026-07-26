@@ -14,6 +14,8 @@ data class UiStrings(
     val edit: String,
     val delete: String,
     val copy: String,
+    val qrCode: String,
+    val close: String,
     val cancel: String,
     val save: String,
     val name: String,
@@ -50,7 +52,7 @@ fun strings(language: String): UiStrings = if (language == "en") {
     UiStrings(
         "Happwner PC", "Subscription server", "Running", "Stopped", "Home network (LAN)", "Port",
         "Apply", "Start with system", "Add subscription", "No subscriptions yet", "Edit", "Delete",
-        "Copy URL", "Cancel", "Save", "Name", "Source URL", "User-Agent", "Enabled",
+        "Copy URL", "QR code", "Close", "Cancel", "Save", "Name", "Source URL", "User-Agent", "Enabled",
         "Decode Base64", "JSON to URI", "Xray to sing-box",
         "LAN mode has no authentication. Anyone on your home network who knows a subscription URL can read it.",
         "LAN interface", "Automatic (all interfaces)", "No private IPv4 interfaces found", "unavailable",
@@ -66,7 +68,7 @@ fun strings(language: String): UiStrings = if (language == "en") {
     UiStrings(
         "Happwner PC", "Сервер подписок", "Работает", "Остановлен", "Домашняя сеть (LAN)", "Порт",
         "Применить", "Запускать с системой", "Добавить подписку", "Подписок пока нет", "Изменить", "Удалить",
-        "Копировать URL", "Отмена", "Сохранить", "Название", "Исходная ссылка", "User-Agent", "Включена",
+        "Копировать URL", "QR-код", "Закрыть", "Отмена", "Сохранить", "Название", "Исходная ссылка", "User-Agent", "Включена",
         "Декодировать Base64", "JSON в URI", "Xray в sing-box",
         "В LAN-режиме нет авторизации. Любой участник домашней сети, знающий адрес подписки, сможет её получить.",
         "LAN-интерфейс", "Автоматически (все интерфейсы)", "Частные IPv4-интерфейсы не найдены", "недоступен",

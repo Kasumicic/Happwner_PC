@@ -1,5 +1,6 @@
 package com.happwner.desktop
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -154,6 +157,7 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
     val text = strings(state.settings.language)
     var edited by remember { mutableStateOf<Subscription?>(null) }
     var pendingDelete by remember { mutableStateOf<Subscription?>(null) }
+    var qrSubscription by remember { mutableStateOf<Subscription?>(null) }
     var adding by remember { mutableStateOf(false) }
     var lanInterfaceMenuExpanded by remember { mutableStateOf(false) }
     var portText by remember(state.settings.port) { mutableStateOf(state.settings.port.toString()) }
@@ -309,6 +313,8 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
                             baseUrl = viewModel.activeBaseUrl(),
                             text = text,
                             onCopy = { clipboard.setText(AnnotatedString("${viewModel.activeBaseUrl()}/sub/${subscription.id}")) },
+                            showQr = state.settings.bindMode == BindMode.LAN,
+                            onShowQr = { qrSubscription = subscription },
                             checkState = viewModel.subscriptionChecks[subscription.id],
                             lastRequest = viewModel.lastSubscriptionRequests[subscription.id],
                             onCheck = { viewModel.checkSubscription(subscription) },
@@ -356,6 +362,40 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
             },
         )
     }
+
+    qrSubscription?.let { subscription ->
+        val subscriptionUrl = "${viewModel.activeBaseUrl()}/sub/${subscription.id}"
+        val qrCode = remember(subscriptionUrl) { QrCodeGenerator.create(subscriptionUrl) }
+        AlertDialog(
+            onDismissRequest = { qrSubscription = null },
+            title = { Text("${text.qrCode}: ${subscription.name}") },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Image(
+                        bitmap = qrCode,
+                        contentDescription = text.qrCode,
+                        modifier = Modifier.size(300.dp),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(subscriptionUrl, style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { clipboard.setText(AnnotatedString(subscriptionUrl)) },
+                ) {
+                    Icon(Icons.Default.ContentCopy, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(text.copy)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { qrSubscription = null }) {
+                    Text(text.close)
+                }
+            },
+        )
+    }
 }
 
 private fun interfaceLabel(network: LanInterface): String =
@@ -367,6 +407,8 @@ private fun SubscriptionCard(
     baseUrl: String,
     text: UiStrings,
     onCopy: () -> Unit,
+    showQr: Boolean,
+    onShowQr: () -> Unit,
     checkState: SubscriptionCheckState?,
     lastRequest: SubscriptionRequestRecord?,
     onCheck: () -> Unit,
@@ -420,6 +462,9 @@ private fun SubscriptionCard(
                 onClick = onCheck,
             ) { Text(if (checkState is SubscriptionCheckState.Running) text.checking else text.check) }
             IconButton(onClick = onCopy) { Icon(Icons.Default.ContentCopy, text.copy) }
+            if (showQr) {
+                IconButton(onClick = onShowQr) { Icon(Icons.Default.QrCode2, text.qrCode) }
+            }
             IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, text.edit) }
             IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, text.delete) }
         }

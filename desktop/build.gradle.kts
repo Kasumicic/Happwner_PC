@@ -15,6 +15,7 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
+    implementation("com.google.zxing:core:3.5.4")
     implementation("com.github.hypfvieh:dbus-java-core:5.1.1")
     implementation("com.github.hypfvieh:dbus-java-transport-native-unixsocket:5.1.1")
     testImplementation(kotlin("test"))
