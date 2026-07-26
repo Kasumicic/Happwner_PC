@@ -556,17 +556,102 @@ object LinkConverter {
             if (users.length() == 0) return null
             val u = users.getJSONObject(0)
             val ss = ob.optJSONObject("streamSettings")
-            val rs = ss?.optJSONObject("realitySettings")
             val enc = URLEncoder.encode(rem, "UTF-8").replace("+", "%20")
-            val fp = rs?.optString("fingerprint", "chrome") ?: "chrome"
-            val pbk = rs?.optString("publicKey", "") ?: ""
-            val sid = rs?.optString("shortId", "") ?: ""
-            val sni = rs?.optString("serverName", "") ?: ""
             val security = ss?.optString("security", "none") ?: "none"
             val type = ss?.optString("network", "tcp") ?: "tcp"
-            "vless://${u.getString("id")}@${vn.getString("address")}:${vn.getInt("port")}?encryption=${u.optString("encryption","none")}&flow=${u.optString("flow","")}&fp=$fp&pbk=$pbk&security=$security&sid=$sid&sni=$sni&type=$type#$enc"
+            val query = linkedMapOf(
+                "encryption" to u.optString("encryption", "none"),
+                "security" to security,
+                "type" to type,
+            )
+            putIfNotBlank(query, "flow", u.optString("flow", ""))
+
+            when (security) {
+                "reality" -> {
+                    val rs = ss?.optJSONObject("realitySettings")
+                    putIfNotBlank(query, "sni", rs?.optString("serverName", ""))
+                    putIfNotBlank(query, "fp", rs?.optString("fingerprint", ""))
+                    putIfNotBlank(query, "pbk", rs?.optString("publicKey", ""))
+                    putIfNotBlank(query, "sid", rs?.optString("shortId", ""))
+                    putIfNotBlank(query, "spx", rs?.optString("spiderX", ""))
+                }
+                "tls" -> {
+                    val ts = ss?.optJSONObject("tlsSettings")
+                    putIfNotBlank(query, "sni", ts?.optString("serverName", ""))
+                    putIfNotBlank(query, "fp", ts?.optString("fingerprint", ""))
+                    putIfNotBlank(query, "alpn", jsonStringList(ts?.opt("alpn")))
+                    if (ts?.optBoolean("allowInsecure", false) == true) {
+                        query["allowInsecure"] = "1"
+                    }
+                }
+            }
+
+            when (type) {
+                "ws" -> {
+                    val ws = ss?.optJSONObject("wsSettings")
+                    putIfNotBlank(query, "path", ws?.optString("path", ""))
+                    putIfNotBlank(query, "host", ws?.optJSONObject("headers")?.optString("Host", ""))
+                }
+                "grpc" -> {
+                    val grpc = ss?.optJSONObject("grpcSettings")
+                    putIfNotBlank(query, "serviceName", grpc?.optString("serviceName", ""))
+                    putIfNotBlank(query, "authority", grpc?.optString("authority", ""))
+                    if (grpc?.optBoolean("multiMode", false) == true) query["mode"] = "multi"
+                }
+                "xhttp", "splithttp" -> {
+                    val xhttp = ss?.optJSONObject("xhttpSettings")
+                        ?: ss?.optJSONObject("splithttpSettings")
+                    putIfNotBlank(query, "path", xhttp?.optString("path", ""))
+                    putIfNotBlank(query, "host", jsonStringList(xhttp?.opt("host")))
+                    putIfNotBlank(query, "mode", xhttp?.optString("mode", ""))
+                    xhttp?.optJSONObject("extra")?.let { query["extra"] = it.toString() }
+                }
+                "httpupgrade" -> {
+                    val httpUpgrade = ss?.optJSONObject("httpupgradeSettings")
+                    putIfNotBlank(query, "path", httpUpgrade?.optString("path", ""))
+                    putIfNotBlank(query, "host", httpUpgrade?.optString("host", ""))
+                }
+                "h2", "http" -> {
+                    val http = ss?.optJSONObject("httpSettings")
+                    putIfNotBlank(query, "path", http?.optString("path", ""))
+                    putIfNotBlank(query, "host", jsonStringList(http?.opt("host")))
+                }
+                "tcp" -> {
+                    val headerType = ss?.optJSONObject("tcpSettings")
+                        ?.optJSONObject("header")
+                        ?.optString("type", "")
+                    putIfNotBlank(query, "headerType", headerType)
+                }
+                "kcp" -> {
+                    val kcp = ss?.optJSONObject("kcpSettings")
+                    putIfNotBlank(query, "headerType", kcp?.optJSONObject("header")?.optString("type", ""))
+                    putIfNotBlank(query, "seed", kcp?.optString("seed", ""))
+                }
+            }
+
+            val queryString = query.entries.joinToString("&") { (key, value) ->
+                "$key=${encodeUriComponent(value)}"
+            }
+            val address = vn.getString("address").let { if (':' in it && !it.startsWith("[")) "[$it]" else it }
+            "vless://${encodeUriComponent(u.getString("id"))}@$address:${vn.getInt("port")}?$queryString#$enc"
         } catch (_: Exception) { null }
     }
+
+    private fun putIfNotBlank(target: MutableMap<String, String>, key: String, value: String?) {
+        if (!value.isNullOrBlank()) target[key] = value
+    }
+
+    private fun jsonStringList(value: Any?): String? = when (value) {
+        is JSONArray -> (0 until value.length())
+            .mapNotNull { value.optString(it, "").takeIf(String::isNotBlank) }
+            .joinToString(",")
+            .takeIf(String::isNotBlank)
+        is String -> value.takeIf(String::isNotBlank)
+        else -> null
+    }
+
+    private fun encodeUriComponent(value: String): String =
+        URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
     // VMess: build the legacy JSON blob and base64 it
     private fun buildVmess(ob: JSONObject, rem: String): String? {
