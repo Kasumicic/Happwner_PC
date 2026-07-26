@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -67,7 +68,7 @@ fun main(args: Array<String>) = application {
     val icon = rememberVectorPainter(Icons.Default.Dns)
     val exiting = remember { AtomicBoolean(false) }
     val nativeWindow = remember { AtomicReference<AwtWindow?>() }
-    val windowState = rememberWindowState()
+    val windowState = rememberWindowState(size = DpSize(1100.dp, 720.dp))
     val hideWindow: () -> Unit = {
         hideNativeWindow(nativeWindow.get())
         visible = false
@@ -107,6 +108,7 @@ fun main(args: Array<String>) = application {
         icon = icon,
         state = windowState,
         visible = visible,
+        resizable = false,
         onCloseRequest = hideWindow,
     ) {
         DisposableEffect(window) {

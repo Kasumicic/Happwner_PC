@@ -24,9 +24,7 @@ compose.desktop {
     application {
         mainClass = "com.happwner.desktop.MainKt"
         if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true)) {
-            // OpenGL through XWayland can leave stale or duplicated regions while resizing.
-            // The application UI is small enough that the stable software renderer is preferable.
-            jvmArgs("-Dskiko.renderApi=SOFTWARE")
+            jvmArgs("-Dskiko.renderApi=OPENGL")
         }
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Deb)
