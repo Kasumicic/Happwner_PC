@@ -5,6 +5,10 @@
 
 # Happwner PC
 
+<p align="center">
+  <img src="desktop/src/main/resources/happwner-pc.png" width="160" alt="Happwner PC">
+</p>
+
 A desktop subscription server for Windows and Linux. It fetches Happ subscriptions, decrypts them, and serves them to VPN clients on the same computer or across a trusted home network.
 
 This is a non-commercial fork of the Android application [Happwner](https://github.com/Omegaplexx/Happwner). Android, Xposed, and LSPatch features have been removed; the portable cryptography, conversion logic, and subscription Bridge remain.
@@ -36,7 +40,7 @@ On Arch Linux:
 ```bash
 sudo pacman -S --needed jdk21-openjdk base-devel
 make arch
-sudo pacman -U dist/happwner-pc-bin-0.1.3-1-x86_64.pkg.tar.zst
+sudo pacman -U dist/happwner-pc-bin-0.1.4-1-x86_64.pkg.tar.zst
 ```
 
 Use `make deb` for a Debian/Ubuntu package. Generated archives and packages are written to `dist/`; `make help` lists all build targets. The shared application/package version is stored in `gradle.properties`.

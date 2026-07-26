@@ -5,6 +5,10 @@
 
 # Happwner PC
 
+<p align="center">
+  <img src="desktop/src/main/resources/happwner-pc.png" width="160" alt="Happwner PC">
+</p>
+
 Настольный локальный сервер подписок для Windows и Linux. Программа получает подписки Happ, расшифровывает их и раздаёт VPN-клиентам на этом компьютере или другим устройствам в домашней сети.
 
 Проект является некоммерческим форком Android-приложения [Happwner](https://github.com/Omegaplexx/Happwner). Android, Xposed и LSPatch-функции удалены — в форке осталось переносимое ядро расшифровки, конвертации и «Мост» подписок.
@@ -40,7 +44,7 @@ make test
 
 ```bash
 make arch
-sudo pacman -U dist/happwner-pc-bin-0.1.3-1-x86_64.pkg.tar.zst
+sudo pacman -U dist/happwner-pc-bin-0.1.4-1-x86_64.pkg.tar.zst
 ```
 
 После установки приложение доступно в меню и через команду `happwner-pc`.
