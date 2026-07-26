@@ -122,6 +122,7 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
     var adding by remember { mutableStateOf(false) }
     var portText by remember(state.settings.port) { mutableStateOf(state.settings.port.toString()) }
     val clipboard = LocalClipboardManager.current
+    val validatedPort = InputValidator.validPort(portText)
 
     Scaffold(topBar = {
         TopAppBar(
@@ -171,15 +172,22 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
                             value = portText,
                             onValueChange = { portText = it.filter(Char::isDigit).take(5) },
                             label = { Text(text.port) },
+                            isError = validatedPort == null,
+                            supportingText = {
+                                if (validatedPort == null) Text(text.invalidPort)
+                            },
                             singleLine = true,
                             modifier = Modifier.width(130.dp),
                         )
                         Spacer(Modifier.width(8.dp))
-                        Button(onClick = {
-                            portText.toIntOrNull()?.takeIf { it in 1024..65535 }?.let {
-                                viewModel.updateSettings(state.settings.copy(port = it))
-                            }
-                        }) { Text(text.apply) }
+                        Button(
+                            enabled = validatedPort != null,
+                            onClick = {
+                                validatedPort?.let {
+                                    viewModel.updateSettings(state.settings.copy(port = it))
+                                }
+                            },
+                        ) { Text(text.apply) }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(
@@ -339,6 +347,7 @@ private fun SubscriptionDialog(
     var decodeBase64 by remember { mutableStateOf(initial?.decodeBase64 ?: false) }
     var jsonToUri by remember { mutableStateOf(initial?.jsonToUri ?: false) }
     var xrayToSingBox by remember { mutableStateOf(initial?.xrayToSingBox ?: false) }
+    val sourceIssue = InputValidator.sourceIssue(source)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -346,7 +355,17 @@ private fun SubscriptionDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(name, { name = it }, label = { Text(text.name) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(source, { source = it }, label = { Text(text.source) }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = source,
+                    onValueChange = { source = it },
+                    label = { Text(text.source) },
+                    isError = source.isNotBlank() && sourceIssue != null,
+                    supportingText = {
+                        if (source.isNotBlank() && sourceIssue != null) Text(text.invalidSource)
+                    },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 OutlinedTextField(hwid, { hwid = it }, label = { Text("HWID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(userAgent, { userAgent = it }, label = { Text(text.ua) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 CheckRow(enabled, { enabled = it }, text.enabled)
@@ -357,7 +376,7 @@ private fun SubscriptionDialog(
         },
         confirmButton = {
             Button(
-                enabled = name.isNotBlank() && source.isNotBlank(),
+                enabled = name.isNotBlank() && sourceIssue == null,
                 onClick = {
                     onSave(
                         Subscription(

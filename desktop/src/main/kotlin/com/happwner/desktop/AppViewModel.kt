@@ -49,6 +49,9 @@ class AppViewModel(
     }
 
     fun saveSubscription(subscription: Subscription) {
+        require(InputValidator.sourceIssue(subscription.source) == null) {
+            "Некорректная исходная ссылка"
+        }
         val current = state.subscriptions
         val updated = if (current.any { it.id == subscription.id }) {
             current.map { if (it.id == subscription.id) subscription else it }
@@ -98,6 +101,7 @@ class AppViewModel(
     }
 
     fun updateSettings(settings: ServerSettings, updateAutostart: Boolean = false) {
+        require(settings.port in 1024..65535) { "Порт должен быть от 1024 до 65535" }
         if (updateAutostart && settings.launchAtLogin != state.settings.launchAtLogin) {
             runCatching { AutostartManager.setEnabled(settings.launchAtLogin) }
                 .onFailure { serverError = it.message }

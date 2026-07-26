@@ -35,6 +35,8 @@ data class UiStrings(
     val profiles: String,
     val noProfiles: String,
     val response: String,
+    val invalidSource: String,
+    val invalidPort: String,
 )
 
 fun strings(language: String): UiStrings = if (language == "en") {
@@ -46,6 +48,8 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "LAN mode has no authentication. Anyone on your home network who knows a subscription URL can read it.",
         "Open", "Exit", "Exit completely", "Test", "Testing…", "Available", "Local data", "Check failed",
         "Profiles", "No supported profiles found", "Response",
+        "Enter a valid HTTP(S) or supported wrapped subscription link",
+        "Enter a port from 1024 to 65535",
     )
 } else {
     UiStrings(
@@ -56,5 +60,7 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "В LAN-режиме нет авторизации. Любой участник домашней сети, знающий адрес подписки, сможет её получить.",
         "Открыть", "Выход", "Полностью выйти", "Проверить", "Проверяем…", "Доступна", "Локальные данные", "Ошибка проверки",
         "Профили", "Поддерживаемые профили не найдены", "Ответ",
+        "Введите корректную HTTP(S)-ссылку или поддерживаемую обёрнутую подписку",
+        "Введите порт от 1024 до 65535",
     )
 }
