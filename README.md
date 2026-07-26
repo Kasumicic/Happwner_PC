@@ -18,6 +18,7 @@ This is a non-commercial fork of the Android application [Happwner](https://gith
 - Happ response decryption using the `Encrypt-Tag` header;
 - optional Base64, JSON-to-URI, and Xray-to-sing-box transformations;
 - Compose Desktop management window, system tray, and login startup;
+- selectable LAN interfaces, occupied-port diagnostics, and QR codes for home-network URLs;
 - loopback compatibility with legacy `/url=...&hwid=...&ua=...` Bridge links.
 
 ## Build and run
@@ -35,7 +36,7 @@ On Arch Linux:
 ```bash
 sudo pacman -S --needed jdk21-openjdk base-devel
 make arch
-sudo pacman -U dist/happwner-pc-bin-0.1.2-1-x86_64.pkg.tar.zst
+sudo pacman -U dist/happwner-pc-bin-0.1.3-1-x86_64.pkg.tar.zst
 ```
 
 Use `make deb` for a Debian/Ubuntu package. Generated archives and packages are written to `dist/`; `make help` lists all build targets. The shared application/package version is stored in `gradle.properties`.
@@ -47,7 +48,7 @@ Use `make deb` for a Debian/Ubuntu package. Generated archives and packages are 
 3. Copy the stable subscription URL into NekoBox, Hiddify, v2rayNG, or another compatible client.
 4. If another device cannot open `/health`, allow inbound TCP traffic to the selected port in the operating-system firewall.
 
-The default listener is `127.0.0.1:8166`. LAN mode listens on all IPv4 interfaces and displays detected private addresses.
+The default listener is `127.0.0.1:8166`. LAN mode can listen on all IPv4 interfaces or on one selected private address.
 
 ## Security
 
