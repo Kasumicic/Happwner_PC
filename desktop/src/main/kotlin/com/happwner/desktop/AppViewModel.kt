@@ -128,7 +128,7 @@ class AppViewModel(
     fun restartServer() {
         runCatching { server.start(state.settings) }
             .onSuccess { serverError = null }
-            .onFailure { serverError = it.message ?: "Не удалось запустить сервер" }
+            .onFailure { serverError = PortDiagnostics.describe(it, state.settings) }
     }
 
     fun activeBaseUrl(): String {
