@@ -4,7 +4,9 @@ plugins {
     id("org.jetbrains.compose") version "1.11.1" apply false
 }
 
+val appVersion = providers.gradleProperty("appVersion").get()
+
 allprojects {
     group = "com.happwner"
-    version = "0.1.0"
+    version = appVersion
 }

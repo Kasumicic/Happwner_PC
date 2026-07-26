@@ -1,0 +1,33 @@
+pkgname=happwner-pc-bin
+pkgver="${HAPPWNER_VERSION:-0.1.0}"
+pkgrel=1
+pkgdesc="Local and home-network proxy subscription server"
+arch=('x86_64')
+url="https://github.com/Kasumicic/Happwner_PC"
+license=('custom:non-commercial')
+depends=('glibc' 'gcc-libs' 'libx11' 'libglvnd' 'fontconfig' 'freetype2' 'alsa-lib')
+optdepends=('gnome-shell-extension-appindicator: tray integration on GNOME')
+provides=('happwner-pc')
+conflicts=('happwner-pc')
+options=('!strip' '!debug')
+source=(
+  "happwner-pc-${pkgver}-linux-x86_64.tar.gz"
+  'happwner-pc.desktop'
+  'TERMS'
+)
+sha256sums=('SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -d "$pkgdir/opt/happwner-pc"
+  cp -a "$srcdir/Happwner PC/." "$pkgdir/opt/happwner-pc/"
+
+  install -d "$pkgdir/usr/bin"
+  ln -s "/opt/happwner-pc/bin/Happwner PC" "$pkgdir/usr/bin/happwner-pc"
+
+  install -Dm644 "$srcdir/happwner-pc.desktop" \
+    "$pkgdir/usr/share/applications/happwner-pc.desktop"
+  install -Dm644 "$srcdir/Happwner PC/lib/Happwner PC.png" \
+    "$pkgdir/usr/share/icons/hicolor/1024x1024/apps/happwner-pc.png"
+  install -Dm644 "$srcdir/TERMS" \
+    "$pkgdir/usr/share/licenses/$pkgname/TERMS"
+}

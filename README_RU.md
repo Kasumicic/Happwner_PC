@@ -22,25 +22,43 @@
 
 ## Запуск из исходников
 
-Требуется JDK 21. Java не требуется конечному пользователю после создания нативного дистрибутива.
+Для сборки требуется JDK 21. Java не требуется конечному пользователю: она включается в готовый пакет.
+
+На Arch Linux установите инструменты сборки:
 
 ```bash
-./gradlew :desktop:run
+sudo pacman -S --needed jdk21-openjdk base-devel
 ```
-
-Сборка переносимого приложения:
 
 ```bash
-./gradlew :desktop:createDistributable
+make run
+make test
 ```
 
-Создание установщика текущей ОС:
+### Arch Linux
 
 ```bash
-./gradlew :desktop:packageDistributionForCurrentOS
+make arch
+sudo pacman -U dist/happwner-pc-bin-0.1.0-1-x86_64.pkg.tar.zst
 ```
 
-Результаты находятся в `desktop/build/compose/binaries`.
+После установки приложение доступно в меню и через команду `happwner-pc`.
+
+### Другие дистрибутивы Linux
+
+Универсальный переносимый архив со встроенной Java:
+
+```bash
+make linux
+```
+
+Для Debian/Ubuntu:
+
+```bash
+make deb
+```
+
+Готовые архивы и пакеты находятся в `dist/`. Выполните `make help`, чтобы увидеть все цели сборки. Версия для Gradle, архивов и Arch-пакета задаётся один раз в `gradle.properties`.
 
 ## Использование
 

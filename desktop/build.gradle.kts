@@ -26,7 +26,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Happwner PC"
-            packageVersion = "0.1.0"
+            packageVersion = project.version.toString()
             description = "Local and home-network proxy subscription server"
             vendor = "Happwner contributors"
             modules(

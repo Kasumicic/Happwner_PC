@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Happwner PC
+Comment=Local subscription server for this computer and home network
+Exec=happwner-pc
+Icon=happwner-pc
+Terminal=false
+Categories=Network;Utility;
+StartupNotify=true

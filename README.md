@@ -25,13 +25,20 @@ This is a non-commercial fork of the Android application [Happwner](https://gith
 JDK 21 is required to build the project. Packaged applications include a runtime, so end users do not need to install Java.
 
 ```bash
-./gradlew :desktop:run
-./gradlew test
-./gradlew :desktop:createDistributable
-./gradlew :desktop:packageDistributionForCurrentOS
+make run
+make test
+make linux
 ```
 
-Packages are written to `desktop/build/compose/binaries`.
+On Arch Linux:
+
+```bash
+sudo pacman -S --needed jdk21-openjdk base-devel
+make arch
+sudo pacman -U dist/happwner-pc-bin-0.1.0-1-x86_64.pkg.tar.zst
+```
+
+Use `make deb` for a Debian/Ubuntu package. Generated archives and packages are written to `dist/`; `make help` lists all build targets. The shared application/package version is stored in `gradle.properties`.
 
 ## Usage
 
