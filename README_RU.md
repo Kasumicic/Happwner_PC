@@ -54,7 +54,7 @@ Happwner PC получает подписку у провайдера, расш�
 ```bash
 sudo pacman -S --needed jdk21-openjdk base-devel
 make arch
-sudo pacman -U dist/happwner-pc-bin-0.1.5-1-x86_64.pkg.tar.zst
+sudo pacman -U dist/happwner-pc-bin-0.1.5-2-x86_64.pkg.tar.zst
 ```
 
 После установки Happwner PC появится в меню приложений. Запуск из терминала:

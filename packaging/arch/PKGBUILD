@@ -1,11 +1,11 @@
 pkgname=happwner-pc-bin
 pkgver="${HAPPWNER_VERSION:-0.1.5}"
-pkgrel=1
+pkgrel=2
 pkgdesc="Local and home-network proxy subscription server"
 arch=('x86_64')
 url="https://github.com/Kasumicic/Happwner_PC"
 license=('custom:non-commercial')
-depends=('glibc' 'gcc-libs' 'libx11' 'libglvnd' 'fontconfig' 'freetype2' 'alsa-lib')
+depends=('glibc' 'gcc-libs' 'libx11' 'libglvnd' 'fontconfig' 'freetype2' 'alsa-lib' 'hicolor-icon-theme')
 optdepends=('gnome-shell-extension-appindicator: tray integration on GNOME')
 provides=('happwner-pc')
 conflicts=('happwner-pc')
@@ -28,6 +28,8 @@ package() {
     "$pkgdir/usr/share/applications/happwner-pc.desktop"
   install -Dm644 "$srcdir/Happwner PC/lib/Happwner PC.png" \
     "$pkgdir/usr/share/icons/hicolor/1024x1024/apps/happwner-pc.png"
+  install -Dm644 "$srcdir/Happwner PC/lib/Happwner PC.png" \
+    "$pkgdir/usr/share/pixmaps/happwner-pc.png"
   install -Dm644 "$srcdir/TERMS" \
     "$pkgdir/usr/share/licenses/$pkgname/TERMS"
 }

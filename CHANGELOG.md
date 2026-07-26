@@ -27,6 +27,7 @@ First public Linux preview.
 
 ### Fixed
 
+- application icon, description, and searchable metadata in the KDE application menu;
 - KDE Plasma 6 tray activation and context menu behavior;
 - server shutdown and port release on complete exit;
 - Linux copy, paste, cut, and select-all shortcuts across keyboard layouts;

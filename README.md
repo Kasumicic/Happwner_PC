@@ -54,7 +54,7 @@ JDK 21 is required to build the project. Packaged applications include a Java ru
 ```bash
 sudo pacman -S --needed jdk21-openjdk base-devel
 make arch
-sudo pacman -U dist/happwner-pc-bin-0.1.5-1-x86_64.pkg.tar.zst
+sudo pacman -U dist/happwner-pc-bin-0.1.5-2-x86_64.pkg.tar.zst
 ```
 
 Happwner PC will appear in the application menu and can also be launched with:
