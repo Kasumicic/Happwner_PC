@@ -11,16 +11,11 @@ import org.freedesktop.dbus.interfaces.DBusInterface
 import org.freedesktop.dbus.types.UInt32
 import org.freedesktop.dbus.types.Variant
 import org.freedesktop.dbus.Struct
-import java.awt.BasicStroke
-import java.awt.Color
 import java.awt.EventQueue
-import java.awt.Graphics2D
 import java.awt.MenuItem
 import java.awt.PopupMenu
-import java.awt.RenderingHints
 import java.awt.SystemTray
 import java.awt.TrayIcon
-import java.awt.image.BufferedImage
 
 class DesktopTray(
     private val tooltip: String,
@@ -111,6 +106,9 @@ interface StatusNotifierItem : DBusInterface {
     @DBusBoundProperty(name = "IconName")
     fun getIconName(): String
 
+    @DBusBoundProperty(name = "IconPixmap")
+    fun getIconPixmap(): Array<StatusNotifierIconPixmap>
+
     @DBusBoundProperty(name = "Menu")
     fun getMenu(): DBusPath
 
@@ -131,7 +129,10 @@ class StatusNotifierItemObject(
     override fun getId() = "Happwner-PC"
     override fun getTitle() = title
     override fun getStatus() = "Active"
-    override fun getIconName() = "network-server"
+    override fun getIconName() = "happwner-pc"
+    override fun getIconPixmap() = intArrayOf(22, 32, 64).map { size ->
+        StatusNotifierIconPixmap(size, size, AppIcon.statusNotifierPixels(size))
+    }.toTypedArray()
     override fun getMenu() = DBusPath(MENU_PATH)
     override fun getItemIsMenu() = false
     override fun Activate(x: Int, y: Int) = onActivate()
@@ -243,6 +244,12 @@ class MenuEvent(
     @Position(3) @JvmField val timestamp: UInt32,
 ) : Struct()
 
+class StatusNotifierIconPixmap(
+    @Position(0) @JvmField val width: Int,
+    @Position(1) @JvmField val height: Int,
+    @Position(2) @JvmField val data: ByteArray,
+) : Struct()
+
 private class AwtTray(
     private val tooltip: String,
     private val openLabel: String,
@@ -259,7 +266,7 @@ private class AwtTray(
             addSeparator()
             add(MenuItem(exitLabel).apply { addActionListener { onExit() } })
         }
-        icon = TrayIcon(createIcon(), tooltip, popup).apply {
+        icon = TrayIcon(AppIcon.image(32), tooltip, popup).apply {
             isImageAutoSize = true
             addActionListener { onOpen() }
             SystemTray.getSystemTray().add(this)
@@ -269,30 +276,6 @@ private class AwtTray(
     override fun close() {
         icon?.let(SystemTray.getSystemTray()::remove)
         icon = null
-    }
-}
-
-private fun createIcon(): BufferedImage = BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB).apply {
-    createGraphics().use { graphics ->
-        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-        graphics.color = Color(42, 98, 214)
-        graphics.fillRoundRect(2, 2, 28, 28, 8, 8)
-        graphics.color = Color.WHITE
-        graphics.stroke = BasicStroke(2.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
-        graphics.drawLine(9, 10, 23, 10)
-        graphics.drawLine(9, 16, 23, 16)
-        graphics.drawLine(9, 22, 23, 22)
-        graphics.fillOval(6, 8, 4, 4)
-        graphics.fillOval(6, 14, 4, 4)
-        graphics.fillOval(6, 20, 4, 4)
-    }
-}
-
-private fun <T : Graphics2D> T.use(block: (T) -> Unit) {
-    try {
-        block(this)
-    } finally {
-        dispose()
     }
 }
 

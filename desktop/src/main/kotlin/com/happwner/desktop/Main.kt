@@ -19,7 +19,6 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
@@ -57,7 +56,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.happwner.BindMode
 import com.happwner.Subscription
 import java.awt.EventQueue
@@ -72,7 +72,7 @@ fun main(args: Array<String>) = application {
     val viewModel = remember { AppViewModel() }
     var visible by remember { mutableStateOf("--minimized" !in args) }
     val text = strings(viewModel.state.settings.language)
-    val icon = rememberVectorPainter(Icons.Default.Dns)
+    val icon = remember { BitmapPainter(AppIcon.image(256).toComposeImageBitmap()) }
     val exiting = remember { AtomicBoolean(false) }
     val nativeWindow = remember { AtomicReference<AwtWindow?>() }
     val windowState = rememberWindowState(size = DpSize(1100.dp, 720.dp))

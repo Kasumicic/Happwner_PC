@@ -42,11 +42,13 @@ compose.desktop {
                 "jdk.security.auth",
             )
             windows {
+                iconFile.set(project.file("src/main/resources/happwner-pc.ico"))
                 menuGroup = "Happwner PC"
                 shortcut = true
                 perUserInstall = true
             }
             linux {
+                iconFile.set(project.file("src/main/resources/happwner-pc.png"))
                 shortcut = true
                 menuGroup = "Network"
             }
