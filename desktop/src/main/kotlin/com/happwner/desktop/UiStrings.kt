@@ -37,6 +37,8 @@ data class UiStrings(
     val response: String,
     val invalidSource: String,
     val invalidPort: String,
+    val deleteSubscriptionTitle: String,
+    val deleteSubscriptionMessage: String,
 )
 
 fun strings(language: String): UiStrings = if (language == "en") {
@@ -50,6 +52,8 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Profiles", "No supported profiles found", "Response",
         "Enter a valid HTTP(S) or supported wrapped subscription link",
         "Enter a port from 1024 to 65535",
+        "Delete subscription?",
+        "“%s” will be removed. This action cannot be undone.",
     )
 } else {
     UiStrings(
@@ -62,5 +66,7 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Профили", "Поддерживаемые профили не найдены", "Ответ",
         "Введите корректную HTTP(S)-ссылку или поддерживаемую обёрнутую подписку",
         "Введите порт от 1024 до 65535",
+        "Удалить подписку?",
+        "«%s» будет удалена. Это действие нельзя отменить.",
     )
 }

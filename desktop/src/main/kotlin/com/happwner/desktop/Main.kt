@@ -119,6 +119,7 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
     val state = viewModel.state
     val text = strings(state.settings.language)
     var edited by remember { mutableStateOf<Subscription?>(null) }
+    var pendingDelete by remember { mutableStateOf<Subscription?>(null) }
     var adding by remember { mutableStateOf(false) }
     var portText by remember(state.settings.port) { mutableStateOf(state.settings.port.toString()) }
     val clipboard = LocalClipboardManager.current
@@ -231,7 +232,7 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
                             checkState = viewModel.subscriptionChecks[subscription.id],
                             onCheck = { viewModel.checkSubscription(subscription) },
                             onEdit = { edited = subscription },
-                            onDelete = { viewModel.deleteSubscription(subscription.id) },
+                            onDelete = { pendingDelete = subscription },
                         )
                     }
                 }
@@ -248,6 +249,29 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
                 viewModel.saveSubscription(it)
                 adding = false
                 edited = null
+            },
+        )
+    }
+
+    pendingDelete?.let { subscription ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text(text.deleteSubscriptionTitle) },
+            text = { Text(text.deleteSubscriptionMessage.format(subscription.name)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteSubscription(subscription.id)
+                        pendingDelete = null
+                    },
+                ) {
+                    Text(text.delete)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text(text.cancel)
+                }
             },
         )
     }
