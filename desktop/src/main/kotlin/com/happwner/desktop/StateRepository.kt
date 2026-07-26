@@ -26,6 +26,7 @@ class StateRepository {
             launchAtLogin = properties.getProperty("app.launchAtLogin", "false").toBoolean(),
             language = properties.getProperty("app.language", "ru"),
             themeMode = parseThemeMode(properties.getProperty("app.theme")),
+            lastHwid = properties.getProperty("app.lastHwid", ""),
         )
         val count = properties.getProperty("subscriptions.count")?.toIntOrNull()?.coerceAtLeast(0) ?: 0
         val subscriptions = (0 until count).mapNotNull { index ->
@@ -39,7 +40,7 @@ class StateRepository {
                 hwid = properties.getProperty(prefix + "hwid", ""),
                 userAgent = properties.getProperty(prefix + "userAgent", "Happ/1.0"),
                 enabled = properties.getProperty(prefix + "enabled", "true").toBoolean(),
-                decodeBase64 = properties.getProperty(prefix + "decodeBase64", "false").toBoolean(),
+                decodeBase64 = properties.getProperty(prefix + "decodeBase64", "true").toBoolean(),
                 jsonToUri = properties.getProperty(prefix + "jsonToUri", "false").toBoolean(),
                 xrayToSingBox = properties.getProperty(prefix + "xrayToSingBox", "false").toBoolean(),
             )
@@ -58,6 +59,7 @@ class StateRepository {
             setProperty("app.launchAtLogin", state.settings.launchAtLogin.toString())
             setProperty("app.language", state.settings.language)
             setProperty("app.theme", state.settings.themeMode.name)
+            setProperty("app.lastHwid", state.settings.lastHwid)
             setProperty("subscriptions.count", state.subscriptions.size.toString())
             state.subscriptions.forEachIndexed { index, subscription ->
                 val prefix = "subscriptions.$index."

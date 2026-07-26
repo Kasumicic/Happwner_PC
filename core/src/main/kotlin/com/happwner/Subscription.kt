@@ -9,7 +9,7 @@ data class Subscription(
     val hwid: String = "",
     val userAgent: String = "Happ/1.0",
     val enabled: Boolean = true,
-    val decodeBase64: Boolean = false,
+    val decodeBase64: Boolean = true,
     val jsonToUri: Boolean = false,
     val xrayToSingBox: Boolean = false,
 )
@@ -26,6 +26,7 @@ data class ServerSettings(
     val launchAtLogin: Boolean = false,
     val language: String = "ru",
     val themeMode: ThemeMode = ThemeMode.DARK,
+    val lastHwid: String = "",
 )
 
 data class StoredState(

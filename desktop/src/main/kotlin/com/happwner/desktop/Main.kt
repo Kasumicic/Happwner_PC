@@ -1,6 +1,9 @@
 package com.happwner.desktop
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.JPopupContextMenuRepresentation
+import androidx.compose.foundation.LocalContextMenuRepresentation
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +51,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,8 +60,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -67,17 +69,29 @@ import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import com.happwner.BindMode
 import com.happwner.Subscription
 import com.happwner.ThemeMode
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import java.awt.EventQueue
+import java.awt.Toolkit
 import java.awt.Window as AwtWindow
+import java.awt.datatransfer.DataFlavor
+import java.awt.datatransfer.StringSelection
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
+@OptIn(ExperimentalFoundationApi::class)
 fun main(args: Array<String>) = application {
     val viewModel = remember { AppViewModel() }
     var visible by remember { mutableStateOf("--minimized" !in args) }
@@ -135,13 +149,16 @@ fun main(args: Array<String>) = application {
         LaunchedEffect(visible, window) {
             if (visible) restoreNativeWindowAfterShow(window)
         }
-        val darkTheme = when (viewModel.state.settings.themeMode) {
-            ThemeMode.DARK -> true
-            ThemeMode.LIGHT -> false
-            ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        }
-        MaterialTheme(colorScheme = happwnerColorScheme(darkTheme)) {
-            AppScreen(viewModel, requestExit)
+        val nativeContextMenu = remember(window) { JPopupContextMenuRepresentation(window) }
+        CompositionLocalProvider(LocalContextMenuRepresentation provides nativeContextMenu) {
+            val darkTheme = when (viewModel.state.settings.themeMode) {
+                ThemeMode.DARK -> true
+                ThemeMode.LIGHT -> false
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+            }
+            MaterialTheme(colorScheme = happwnerColorScheme(darkTheme)) {
+                AppScreen(viewModel, requestExit)
+            }
         }
     }
 }
@@ -199,7 +216,6 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
     var qrSubscription by remember { mutableStateOf<Subscription?>(null) }
     var adding by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
-    val clipboard = LocalClipboardManager.current
 
     Scaffold(topBar = {
         TopAppBar(
@@ -239,7 +255,7 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
                     viewModel = viewModel,
                     text = text,
                     onAdd = { adding = true },
-                    onCopy = { url -> clipboard.setText(AnnotatedString(url)) },
+                    onCopy = { url -> writeSystemClipboard(url) },
                     onShowQr = { qrSubscription = it },
                     onEdit = { edited = it },
                     onDelete = { pendingDelete = it },
@@ -253,6 +269,7 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
         SubscriptionDialog(
             initial = edited,
             text = text,
+            lastHwid = state.settings.lastHwid,
             onDismiss = { adding = false; edited = null },
             onSave = {
                 viewModel.saveSubscription(it)
@@ -304,7 +321,7 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
             },
             confirmButton = {
                 Button(
-                    onClick = { clipboard.setText(AnnotatedString(subscriptionUrl)) },
+                    onClick = { writeSystemClipboard(subscriptionUrl) },
                 ) {
                     Icon(Icons.Default.ContentCopy, null)
                     Spacer(Modifier.width(6.dp))
@@ -403,8 +420,10 @@ private fun SubscriptionsScreen(
 private fun SettingsScreen(viewModel: AppViewModel, text: UiStrings, onExit: () -> Unit) {
     val state = viewModel.state
     var lanInterfaceMenuExpanded by remember { mutableStateOf(false) }
-    var portText by remember(state.settings.port) { mutableStateOf(state.settings.port.toString()) }
-    val validatedPort = InputValidator.validPort(portText)
+    var portText by remember(state.settings.port) {
+        mutableStateOf(TextFieldValue(state.settings.port.toString()))
+    }
+    val validatedPort = InputValidator.validPort(portText.text)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -460,12 +479,26 @@ private fun SettingsScreen(viewModel: AppViewModel, text: UiStrings, onExit: () 
                     Spacer(Modifier.width(20.dp))
                     OutlinedTextField(
                         value = portText,
-                        onValueChange = { portText = it.filter(Char::isDigit).take(5) },
+                        onValueChange = {
+                            val filtered = it.text.filter(Char::isDigit).take(5)
+                            portText = it.copy(
+                                text = filtered,
+                                selection = TextRange(it.selection.end.coerceAtMost(filtered.length)),
+                            )
+                        },
                         label = { Text(text.port) },
                         isError = validatedPort == null,
                         supportingText = { if (validatedPort == null) Text(text.invalidPort) },
                         singleLine = true,
-                        modifier = Modifier.width(130.dp),
+                        modifier = Modifier
+                            .width(130.dp)
+                            .desktopTextShortcuts(portText) {
+                                val filtered = it.text.filter(Char::isDigit).take(5)
+                                portText = it.copy(
+                                    text = filtered,
+                                    selection = TextRange(it.selection.end.coerceAtMost(filtered.length)),
+                                )
+                            },
                     )
                     Spacer(Modifier.width(8.dp))
                     Button(
@@ -684,38 +717,83 @@ private fun requestResultText(record: SubscriptionRequestRecord, text: UiStrings
 private fun SubscriptionDialog(
     initial: Subscription?,
     text: UiStrings,
+    lastHwid: String,
     onDismiss: () -> Unit,
     onSave: (Subscription) -> Unit,
 ) {
-    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
-    var source by remember { mutableStateOf(initial?.source.orEmpty()) }
-    var hwid by remember { mutableStateOf(initial?.hwid.orEmpty()) }
-    var userAgent by remember { mutableStateOf(initial?.userAgent ?: "Happ/1.0") }
+    var name by remember { mutableStateOf(TextFieldValue(initial?.name.orEmpty())) }
+    var source by remember { mutableStateOf(TextFieldValue(initial?.source.orEmpty())) }
+    var hwid by remember { mutableStateOf(TextFieldValue(initial?.hwid.orEmpty())) }
+    var userAgent by remember { mutableStateOf(TextFieldValue(initial?.userAgent ?: "Happ/1.0")) }
     var enabled by remember { mutableStateOf(initial?.enabled ?: true) }
-    var decodeBase64 by remember { mutableStateOf(initial?.decodeBase64 ?: false) }
+    var decodeBase64 by remember { mutableStateOf(initial?.decodeBase64 ?: true) }
     var jsonToUri by remember { mutableStateOf(initial?.jsonToUri ?: false) }
     var xrayToSingBox by remember { mutableStateOf(initial?.xrayToSingBox ?: false) }
-    val sourceIssue = InputValidator.sourceIssue(source)
+    val sourceIssue = InputValidator.sourceIssue(source.text)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) text.add else text.edit) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text(text.name) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(text.name) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().desktopTextShortcuts(name) { name = it },
+                )
                 OutlinedTextField(
                     value = source,
                     onValueChange = { source = it },
                     label = { Text(text.source) },
-                    isError = source.isNotBlank() && sourceIssue != null,
+                    isError = source.text.isNotBlank() && sourceIssue != null,
                     supportingText = {
-                        if (source.isNotBlank() && sourceIssue != null) Text(text.invalidSource)
+                        if (source.text.isNotBlank() && sourceIssue != null) Text(text.invalidSource)
                     },
                     minLines = 2,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().desktopTextShortcuts(source) { source = it },
                 )
-                OutlinedTextField(hwid, { hwid = it }, label = { Text("HWID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(userAgent, { userAgent = it }, label = { Text(text.ua) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = hwid,
+                    onValueChange = { hwid = it },
+                    label = { Text("HWID") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().desktopTextShortcuts(hwid) { hwid = it },
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            val generated = java.util.UUID.randomUUID().toString()
+                            hwid = TextFieldValue(generated, TextRange(generated.length))
+                        },
+                    ) {
+                        Text(text.generate)
+                    }
+                    OutlinedButton(
+                        enabled = lastHwid.isNotBlank(),
+                        onClick = {
+                            hwid = TextFieldValue(lastHwid, TextRange(lastHwid.length))
+                        },
+                    ) {
+                        Text(text.useLastHwid)
+                    }
+                    if (lastHwid.isBlank()) {
+                        Text(
+                            text.noSavedHwid,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.align(Alignment.CenterVertically),
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = userAgent,
+                    onValueChange = { userAgent = it },
+                    label = { Text(text.ua) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().desktopTextShortcuts(userAgent) { userAgent = it },
+                )
                 CheckRow(enabled, { enabled = it }, text.enabled)
                 CheckRow(decodeBase64, { decodeBase64 = it }, text.decodeBase64)
                 CheckRow(jsonToUri, { jsonToUri = it }, text.jsonToUri)
@@ -724,15 +802,15 @@ private fun SubscriptionDialog(
         },
         confirmButton = {
             Button(
-                enabled = name.isNotBlank() && sourceIssue == null,
+                enabled = name.text.isNotBlank() && sourceIssue == null,
                 onClick = {
                     onSave(
                         Subscription(
                             id = initial?.id ?: java.util.UUID.randomUUID().toString(),
-                            name = name.trim(),
-                            source = source.trim(),
-                            hwid = hwid.trim(),
-                            userAgent = userAgent.trim(),
+                            name = name.text.trim(),
+                            source = source.text.trim(),
+                            hwid = hwid.text.trim(),
+                            userAgent = userAgent.text.trim(),
                             enabled = enabled,
                             decodeBase64 = decodeBase64,
                             jsonToUri = jsonToUri,
@@ -745,6 +823,62 @@ private fun SubscriptionDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text(text.cancel) } },
     )
 }
+
+private fun Modifier.desktopTextShortcuts(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+): Modifier = onPreviewKeyEvent { event ->
+    if (event.type != KeyEventType.KeyDown || !event.isCtrlPressed) {
+        return@onPreviewKeyEvent false
+    }
+    val selectionStart = value.selection.min
+    val selectionEnd = value.selection.max
+    when (event.key) {
+        Key.C -> {
+            if (selectionStart != selectionEnd) {
+                writeSystemClipboard(value.text.substring(selectionStart, selectionEnd))
+            } else {
+                true
+            }
+        }
+        Key.X -> {
+            if (selectionStart == selectionEnd) {
+                true
+            } else if (writeSystemClipboard(value.text.substring(selectionStart, selectionEnd))) {
+                val updated = value.text.removeRange(selectionStart, selectionEnd)
+                onValueChange(TextFieldValue(updated, TextRange(selectionStart)))
+                true
+            } else {
+                false
+            }
+        }
+        Key.V -> {
+            val clipboardText = readSystemClipboard() ?: return@onPreviewKeyEvent false
+            val updated = value.text.replaceRange(selectionStart, selectionEnd, clipboardText)
+            val cursor = selectionStart + clipboardText.length
+            onValueChange(TextFieldValue(updated, TextRange(cursor)))
+            true
+        }
+        Key.A -> {
+            onValueChange(value.copy(selection = TextRange(0, value.text.length)))
+            true
+        }
+        else -> false
+    }
+}
+
+private fun writeSystemClipboard(text: String): Boolean = runCatching {
+    Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null)
+}.isSuccess
+
+private fun readSystemClipboard(): String? = runCatching {
+    val clipboard = Toolkit.getDefaultToolkit().systemClipboard
+    if (clipboard.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
+        clipboard.getData(DataFlavor.stringFlavor) as? String
+    } else {
+        null
+    }
+}.getOrNull()
 
 @Composable
 private fun CheckRow(checked: Boolean, onChecked: (Boolean) -> Unit, label: String) {

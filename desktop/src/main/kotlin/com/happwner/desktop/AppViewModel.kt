@@ -69,7 +69,12 @@ class AppViewModel(
         } else {
             current + subscription
         }
-        commit(state.copy(subscriptions = updated))
+        val settings = if (subscription.hwid.isNotBlank()) {
+            state.settings.copy(lastHwid = subscription.hwid)
+        } else {
+            state.settings
+        }
+        commit(state.copy(settings = settings, subscriptions = updated))
     }
 
     fun deleteSubscription(id: String) = commit(

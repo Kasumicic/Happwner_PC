@@ -56,6 +56,9 @@ data class UiStrings(
     val serverSettings: String,
     val applicationSettings: String,
     val subscriptionCount: String,
+    val generate: String,
+    val useLastHwid: String,
+    val noSavedHwid: String,
 )
 
 fun strings(language: String): UiStrings = if (language == "en") {
@@ -75,6 +78,7 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Last request",
         "Subscriptions", "Settings", "Appearance", "Theme", "Dark", "Light", "System",
         "Server", "Application", "Subscriptions",
+        "Generate", "Use last", "No previously used HWID",
     )
 } else {
     UiStrings(
@@ -93,5 +97,6 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Последний запрос",
         "Подписки", "Настройки", "Оформление", "Тема", "Тёмная", "Светлая", "Системная",
         "Сервер", "Приложение", "Подписки",
+        "Сгенерировать", "Вставить последний", "Ранее использованный HWID отсутствует",
     )
 }

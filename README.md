@@ -19,9 +19,10 @@ This is a non-commercial fork of the Android application [Happwner](https://gith
 - LAN serving through an address such as `http://192.168.x.x:8166`;
 - HTTP(S), `happ://add`, `happ://crypt`–`crypt5`, `v2raytun://crypt`, `v2raytun://import`, `incy://add`, and `incy://import` inputs;
 - provider requests with `x-hwid` and a configurable `User-Agent`;
+- HWID generation and reuse of the most recently saved HWID;
 - Happ response decryption using the `Encrypt-Tag` header;
 - optional Base64, JSON-to-URI, and Xray-to-sing-box transformations;
-- Compose Desktop management window with subscription/settings tabs, dark theme by default, system tray, and login startup;
+- Compose Desktop management window with subscription/settings tabs, dark theme by default, native desktop text menus, system tray, and login startup;
 - selectable LAN interfaces, occupied-port diagnostics, and QR codes for home-network URLs;
 - loopback compatibility with legacy `/url=...&hwid=...&ua=...` Bridge links.
 
