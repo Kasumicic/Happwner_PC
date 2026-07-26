@@ -5,6 +5,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.JPopupContextMenuRepresentation
 import androidx.compose.foundation.LocalContextMenuRepresentation
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -90,7 +93,7 @@ fun main(args: Array<String>) = application {
     val icon = remember { BitmapPainter(AppIcon.image(256).toComposeImageBitmap()) }
     val exiting = remember { AtomicBoolean(false) }
     val nativeWindow = remember { AtomicReference<AwtWindow?>() }
-    val windowState = rememberWindowState(size = DpSize(1100.dp, 720.dp))
+    val windowState = rememberWindowState(size = DpSize(1100.dp, 800.dp))
     val hideWindow: () -> Unit = {
         hideNativeWindow(nativeWindow.get())
         visible = false
@@ -730,7 +733,12 @@ private fun SubscriptionDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) text.add else text.edit) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 580.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
