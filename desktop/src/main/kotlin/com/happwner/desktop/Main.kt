@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import com.happwner.BindMode
 import com.happwner.Subscription
@@ -65,18 +67,15 @@ fun main(args: Array<String>) = application {
     val icon = rememberVectorPainter(Icons.Default.Dns)
     val exiting = remember { AtomicBoolean(false) }
     val nativeWindow = remember { AtomicReference<AwtWindow?>() }
+    val windowState = rememberWindowState()
     val hideWindow: () -> Unit = {
-        // Hide the AWT window immediately, before Compose changes its visibility.
-        // This prevents KDE from animating a maximized window to restored bounds.
-        nativeWindow.get()?.isVisible = false
+        hideNativeWindow(nativeWindow.get())
         visible = false
     }
     val requestExit: () -> Unit = {
         if (exiting.compareAndSet(false, true)) {
             val finishExit = {
-                // Hide the native window before Compose disposes it. Otherwise KDE can
-                // briefly animate a maximized window back to its restored bounds.
-                nativeWindow.getAndSet(null)?.isVisible = false
+                hideNativeWindow(nativeWindow.getAndSet(null))
                 viewModel.close()
                 exitApplication()
             }
@@ -93,7 +92,10 @@ fun main(args: Array<String>) = application {
             tooltip = text.title,
             openLabel = text.open,
             exitLabel = text.exit,
-            onOpen = { visible = true },
+            onOpen = {
+                prepareNativeWindowForShow(nativeWindow.get())
+                visible = true
+            },
             onExit = requestExit,
         )
         runCatching { tray.install() }
@@ -103,6 +105,7 @@ fun main(args: Array<String>) = application {
     Window(
         title = text.title,
         icon = icon,
+        state = windowState,
         visible = visible,
         onCloseRequest = hideWindow,
     ) {
@@ -110,10 +113,32 @@ fun main(args: Array<String>) = application {
             nativeWindow.set(window)
             onDispose { nativeWindow.compareAndSet(window, null) }
         }
+        LaunchedEffect(visible, window) {
+            if (visible) restoreNativeWindowAfterShow(window)
+        }
         MaterialTheme {
             AppScreen(viewModel, requestExit)
         }
     }
+}
+
+private val isLinuxDesktop: Boolean =
+    System.getProperty("os.name").startsWith("Linux", ignoreCase = true)
+
+private fun hideNativeWindow(window: AwtWindow?) {
+    if (window == null) return
+    if (isLinuxDesktop) runCatching { window.opacity = 0f }
+    window.isVisible = false
+}
+
+private fun prepareNativeWindowForShow(window: AwtWindow?) {
+    if (window != null && isLinuxDesktop) runCatching { window.opacity = 0f }
+}
+
+private fun restoreNativeWindowAfterShow(window: AwtWindow) {
+    if (isLinuxDesktop) runCatching { window.opacity = 1f }
+    window.toFront()
+    window.requestFocus()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
