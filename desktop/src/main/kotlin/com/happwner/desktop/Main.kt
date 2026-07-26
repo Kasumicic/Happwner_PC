@@ -73,6 +73,7 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.happwner.BindMode
+import com.happwner.DEFAULT_USER_AGENT
 import com.happwner.Subscription
 import com.happwner.ThemeMode
 import androidx.compose.ui.text.TextRange
@@ -722,7 +723,7 @@ private fun SubscriptionDialog(
     var name by remember { mutableStateOf(TextFieldValue(initial?.name.orEmpty())) }
     var source by remember { mutableStateOf(TextFieldValue(initial?.source.orEmpty())) }
     var hwid by remember { mutableStateOf(TextFieldValue(initial?.hwid.orEmpty())) }
-    var userAgent by remember { mutableStateOf(TextFieldValue(initial?.userAgent ?: "Happ/1.0")) }
+    var userAgent by remember { mutableStateOf(TextFieldValue(initial?.userAgent ?: DEFAULT_USER_AGENT)) }
     var enabled by remember { mutableStateOf(initial?.enabled ?: true) }
     var decodeBase64 by remember { mutableStateOf(initial?.decodeBase64 ?: true) }
     var jsonToUri by remember { mutableStateOf(initial?.jsonToUri ?: false) }

@@ -1,6 +1,7 @@
 package com.happwner.desktop
 
 import com.happwner.BindMode
+import com.happwner.DEFAULT_USER_AGENT
 import com.happwner.ServerSettings
 import com.happwner.StoredState
 import com.happwner.Subscription
@@ -38,7 +39,7 @@ class StateRepository {
                 name = properties.getProperty(prefix + "name", "Subscription ${index + 1}"),
                 source = source,
                 hwid = properties.getProperty(prefix + "hwid", ""),
-                userAgent = properties.getProperty(prefix + "userAgent", "Happ/1.0"),
+                userAgent = properties.getProperty(prefix + "userAgent", DEFAULT_USER_AGENT),
                 enabled = properties.getProperty(prefix + "enabled", "true").toBoolean(),
                 decodeBase64 = properties.getProperty(prefix + "decodeBase64", "true").toBoolean(),
                 jsonToUri = properties.getProperty(prefix + "jsonToUri", "false").toBoolean(),

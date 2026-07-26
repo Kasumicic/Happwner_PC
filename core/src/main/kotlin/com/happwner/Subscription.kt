@@ -2,12 +2,14 @@ package com.happwner
 
 import java.util.UUID
 
+const val DEFAULT_USER_AGENT = "Happ/3.26.1"
+
 data class Subscription(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val source: String,
     val hwid: String = "",
-    val userAgent: String = "Happ/1.0",
+    val userAgent: String = DEFAULT_USER_AGENT,
     val enabled: Boolean = true,
     val decodeBase64: Boolean = true,
     val jsonToUri: Boolean = false,

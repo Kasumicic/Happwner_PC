@@ -1,6 +1,7 @@
 package com.happwner.desktop
 
 import com.happwner.BindMode
+import com.happwner.DEFAULT_USER_AGENT
 import com.happwner.ServerSettings
 import com.happwner.StoredState
 import com.happwner.Subscription
@@ -21,9 +22,11 @@ class BridgeServerTest {
     @Test
     fun servesSavedSubscriptionAndForwardsMetadata() {
         var receivedHwid: String? = null
+        var receivedUserAgent: String? = null
         val upstream = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
             createContext("/sub") { exchange ->
                 receivedHwid = exchange.requestHeaders.getFirst("x-hwid")
+                receivedUserAgent = exchange.requestHeaders.getFirst("User-Agent")
                 val body = "vless://example".toByteArray()
                 exchange.responseHeaders.set("Subscription-Userinfo", "upload=1; download=2")
                 exchange.sendResponseHeaders(200, body.size.toLong())
@@ -55,6 +58,7 @@ class BridgeServerTest {
             assertEquals(200, response.statusCode())
             assertEquals("vless://example", response.body())
             assertEquals("device-123", receivedHwid)
+            assertEquals(DEFAULT_USER_AGENT, receivedUserAgent)
             assertEquals("upload=1; download=2", response.headers().firstValue("Subscription-Userinfo").orElse(null))
             val recorded = assertNotNull(lastRequest)
             assertEquals(200, recorded.statusCode)

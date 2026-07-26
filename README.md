@@ -68,6 +68,8 @@ Configuration is stored under `%APPDATA%/HappwnerPC` on Windows and `${XDG_CONFI
 - `core` — link formats, cryptography, and converters;
 - `desktop` — Compose Desktop UI, HTTP server, persistence, tray, and startup integration.
 
+The ported core and deliberate desktop differences are documented in the [core compatibility audit](docs/CORE_AUDIT.md).
+
 ## Credits and terms
 
 The cryptography and conversion core is based on work by **Omegaplex** and **slavrom21** in the original Happwner project.
