@@ -117,12 +117,21 @@ class AppViewModel(
 
     fun updateSettings(settings: ServerSettings, updateAutostart: Boolean = false) {
         require(settings.port in 1024..65535) { "Порт должен быть от 1024 до 65535" }
-        if (updateAutostart && settings.launchAtLogin != state.settings.launchAtLogin) {
+        val previous = state.settings
+        if (updateAutostart && settings.launchAtLogin != previous.launchAtLogin) {
             runCatching { AutostartManager.setEnabled(settings.launchAtLogin) }
                 .onFailure { serverError = it.message }
         }
         commit(state.copy(settings = settings))
-        if (settings.serverEnabled) restartServer() else server.stop()
+        val serverChanged =
+            settings.bindMode != previous.bindMode ||
+                settings.lanAddress != previous.lanAddress ||
+                settings.port != previous.port ||
+                settings.serverEnabled != previous.serverEnabled
+        when {
+            !settings.serverEnabled -> server.stop()
+            serverChanged -> restartServer()
+        }
     }
 
     fun restartServer() {

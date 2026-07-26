@@ -4,6 +4,7 @@ import com.happwner.BindMode
 import com.happwner.ServerSettings
 import com.happwner.StoredState
 import com.happwner.Subscription
+import com.happwner.ThemeMode
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.Properties
@@ -24,6 +25,7 @@ class StateRepository {
             serverEnabled = properties.getProperty("server.enabled", "true").toBoolean(),
             launchAtLogin = properties.getProperty("app.launchAtLogin", "false").toBoolean(),
             language = properties.getProperty("app.language", "ru"),
+            themeMode = parseThemeMode(properties.getProperty("app.theme")),
         )
         val count = properties.getProperty("subscriptions.count")?.toIntOrNull()?.coerceAtLeast(0) ?: 0
         val subscriptions = (0 until count).mapNotNull { index ->
@@ -55,6 +57,7 @@ class StateRepository {
             setProperty("server.enabled", state.settings.serverEnabled.toString())
             setProperty("app.launchAtLogin", state.settings.launchAtLogin.toString())
             setProperty("app.language", state.settings.language)
+            setProperty("app.theme", state.settings.themeMode.name)
             setProperty("subscriptions.count", state.subscriptions.size.toString())
             state.subscriptions.forEachIndexed { index, subscription ->
                 val prefix = "subscriptions.$index."
@@ -78,3 +81,6 @@ class StateRepository {
         }
     }
 }
+
+internal fun parseThemeMode(value: String?): ThemeMode =
+    runCatching { ThemeMode.valueOf(value ?: ThemeMode.DARK.name) }.getOrDefault(ThemeMode.DARK)

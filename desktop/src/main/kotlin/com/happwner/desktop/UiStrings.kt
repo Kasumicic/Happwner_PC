@@ -46,6 +46,16 @@ data class UiStrings(
     val deleteSubscriptionTitle: String,
     val deleteSubscriptionMessage: String,
     val lastRequest: String,
+    val subscriptionsTab: String,
+    val settingsTab: String,
+    val appearance: String,
+    val theme: String,
+    val darkTheme: String,
+    val lightTheme: String,
+    val systemTheme: String,
+    val serverSettings: String,
+    val applicationSettings: String,
+    val subscriptionCount: String,
 )
 
 fun strings(language: String): UiStrings = if (language == "en") {
@@ -63,6 +73,8 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Delete subscription?",
         "“%s” will be removed. This action cannot be undone.",
         "Last request",
+        "Subscriptions", "Settings", "Appearance", "Theme", "Dark", "Light", "System",
+        "Server", "Application", "Subscriptions",
     )
 } else {
     UiStrings(
@@ -79,5 +91,7 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Удалить подписку?",
         "«%s» будет удалена. Это действие нельзя отменить.",
         "Последний запрос",
+        "Подписки", "Настройки", "Оформление", "Тема", "Тёмная", "Светлая", "Системная",
+        "Сервер", "Приложение", "Подписки",
     )
 }

@@ -16,6 +16,8 @@ data class Subscription(
 
 enum class BindMode { LOCAL, LAN }
 
+enum class ThemeMode { DARK, LIGHT, SYSTEM }
+
 data class ServerSettings(
     val bindMode: BindMode = BindMode.LOCAL,
     val lanAddress: String = "",
@@ -23,6 +25,7 @@ data class ServerSettings(
     val serverEnabled: Boolean = true,
     val launchAtLogin: Boolean = false,
     val language: String = "ru",
+    val themeMode: ThemeMode = ThemeMode.DARK,
 )
 
 data class StoredState(

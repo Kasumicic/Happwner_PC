@@ -21,7 +21,7 @@ This is a non-commercial fork of the Android application [Happwner](https://gith
 - provider requests with `x-hwid` and a configurable `User-Agent`;
 - Happ response decryption using the `Encrypt-Tag` header;
 - optional Base64, JSON-to-URI, and Xray-to-sing-box transformations;
-- Compose Desktop management window, system tray, and login startup;
+- Compose Desktop management window with subscription/settings tabs, dark theme by default, system tray, and login startup;
 - selectable LAN interfaces, occupied-port diagnostics, and QR codes for home-network URLs;
 - loopback compatibility with legacy `/url=...&hwid=...&ua=...` Bridge links.
 

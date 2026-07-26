@@ -1,6 +1,7 @@
 package com.happwner.desktop
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,8 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -34,11 +37,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -57,9 +65,11 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.happwner.BindMode
 import com.happwner.Subscription
+import com.happwner.ThemeMode
 import java.awt.EventQueue
 import java.awt.Window as AwtWindow
 import java.time.Instant
@@ -125,10 +135,39 @@ fun main(args: Array<String>) = application {
         LaunchedEffect(visible, window) {
             if (visible) restoreNativeWindowAfterShow(window)
         }
-        MaterialTheme {
+        val darkTheme = when (viewModel.state.settings.themeMode) {
+            ThemeMode.DARK -> true
+            ThemeMode.LIGHT -> false
+            ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        }
+        MaterialTheme(colorScheme = happwnerColorScheme(darkTheme)) {
             AppScreen(viewModel, requestExit)
         }
     }
+}
+
+private fun happwnerColorScheme(darkTheme: Boolean) = if (darkTheme) {
+    darkColorScheme(
+        primary = Color(0xFF39D6F2),
+        onPrimary = Color(0xFF00363E),
+        primaryContainer = Color(0xFF004E5A),
+        onPrimaryContainer = Color(0xFFA4EEFC),
+        secondary = Color(0xFFB1CBD0),
+        background = Color(0xFF101416),
+        surface = Color(0xFF101416),
+        surfaceVariant = Color(0xFF20282B),
+    )
+} else {
+    lightColorScheme(
+        primary = Color(0xFF006878),
+        onPrimary = Color.White,
+        primaryContainer = Color(0xFFA4EEFC),
+        onPrimaryContainer = Color(0xFF001F25),
+        secondary = Color(0xFF4A6267),
+        background = Color(0xFFF7FAFB),
+        surface = Color(0xFFF7FAFB),
+        surfaceVariant = Color(0xFFDBE4E6),
+    )
 }
 
 private val isLinuxDesktop: Boolean =
@@ -159,10 +198,8 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
     var pendingDelete by remember { mutableStateOf<Subscription?>(null) }
     var qrSubscription by remember { mutableStateOf<Subscription?>(null) }
     var adding by remember { mutableStateOf(false) }
-    var lanInterfaceMenuExpanded by remember { mutableStateOf(false) }
-    var portText by remember(state.settings.port) { mutableStateOf(state.settings.port.toString()) }
+    var selectedTab by remember { mutableStateOf(0) }
     val clipboard = LocalClipboardManager.current
-    val validatedPort = InputValidator.validPort(portText)
 
     Scaffold(topBar = {
         TopAppBar(
@@ -181,148 +218,33 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
         )
     }) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize().padding(padding),
         ) {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(text.server, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                if (viewModel.serverRunning) "${text.running}: ${viewModel.activeBaseUrl()}" else text.stopped,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
-                        Switch(
-                            checked = state.settings.serverEnabled,
-                            onCheckedChange = { viewModel.updateSettings(state.settings.copy(serverEnabled = it)) },
-                        )
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = state.settings.bindMode == BindMode.LAN,
-                            onCheckedChange = {
-                                viewModel.updateSettings(state.settings.copy(bindMode = if (it) BindMode.LAN else BindMode.LOCAL))
-                            },
-                        )
-                        Text(text.lanMode)
-                        Spacer(Modifier.width(20.dp))
-                        OutlinedTextField(
-                            value = portText,
-                            onValueChange = { portText = it.filter(Char::isDigit).take(5) },
-                            label = { Text(text.port) },
-                            isError = validatedPort == null,
-                            supportingText = {
-                                if (validatedPort == null) Text(text.invalidPort)
-                            },
-                            singleLine = true,
-                            modifier = Modifier.width(130.dp),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Button(
-                            enabled = validatedPort != null,
-                            onClick = {
-                                validatedPort?.let {
-                                    viewModel.updateSettings(state.settings.copy(port = it))
-                                }
-                            },
-                        ) { Text(text.apply) }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = state.settings.launchAtLogin,
-                            onCheckedChange = {
-                                viewModel.updateSettings(state.settings.copy(launchAtLogin = it), updateAutostart = true)
-                            },
-                        )
-                        Text(text.autostart)
-                    }
-                    if (state.settings.bindMode == BindMode.LAN) {
-                        Text(text.lanWarning, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        val interfaces = NetworkAddresses.privateIpv4Interfaces()
-                        val selectedInterface = interfaces.firstOrNull { it.address == state.settings.lanAddress }
-                        val selectedLabel = when {
-                            state.settings.lanAddress.isBlank() -> text.automaticInterface
-                            selectedInterface != null -> interfaceLabel(selectedInterface)
-                            else -> "${state.settings.lanAddress} (${text.unavailable})"
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("${text.lanInterface}:")
-                            Spacer(Modifier.width(12.dp))
-                            Box(Modifier.weight(1f)) {
-                                OutlinedButton(
-                                    onClick = { lanInterfaceMenuExpanded = true },
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text(selectedLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                                DropdownMenu(
-                                    expanded = lanInterfaceMenuExpanded,
-                                    onDismissRequest = { lanInterfaceMenuExpanded = false },
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text(text.automaticInterface) },
-                                        onClick = {
-                                            lanInterfaceMenuExpanded = false
-                                            viewModel.updateSettings(state.settings.copy(lanAddress = ""))
-                                        },
-                                    )
-                                    interfaces.forEach { network ->
-                                        DropdownMenuItem(
-                                            text = { Text(interfaceLabel(network)) },
-                                            onClick = {
-                                                lanInterfaceMenuExpanded = false
-                                                viewModel.updateSettings(state.settings.copy(lanAddress = network.address))
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        if (interfaces.isEmpty()) {
-                            Text(text.noLanInterfaces, color = MaterialTheme.colorScheme.error)
-                        } else {
-                            val shownAddresses = selectedInterface?.let { listOf(it.address) }
-                                ?: interfaces.map(LanInterface::address)
-                            Text(shownAddresses.joinToString("  •  ") { "http://$it:${state.settings.port}" })
-                        }
-                    }
-                    viewModel.serverError?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error)
-                    }
-                }
+            PrimaryTabRow(selectedTabIndex = selectedTab) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text(text.subscriptionsTab) },
+                    icon = { Icon(Icons.Default.Subscriptions, null) },
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = { Text(text.settingsTab) },
+                    icon = { Icon(Icons.Default.Settings, null) },
+                )
             }
-
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("${text.server}: ${state.subscriptions.size}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                Button(onClick = { adding = true }) {
-                    Icon(Icons.Default.Add, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(text.add)
-                }
-            }
-            HorizontalDivider()
-            if (state.subscriptions.isEmpty()) {
-                Text(text.empty, modifier = Modifier.padding(16.dp))
-            } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(state.subscriptions, key = { it.id }) { subscription ->
-                        SubscriptionCard(
-                            subscription = subscription,
-                            baseUrl = viewModel.activeBaseUrl(),
-                            text = text,
-                            onCopy = { clipboard.setText(AnnotatedString("${viewModel.activeBaseUrl()}/sub/${subscription.id}")) },
-                            showQr = state.settings.bindMode == BindMode.LAN,
-                            onShowQr = { qrSubscription = subscription },
-                            checkState = viewModel.subscriptionChecks[subscription.id],
-                            lastRequest = viewModel.lastSubscriptionRequests[subscription.id],
-                            onCheck = { viewModel.checkSubscription(subscription) },
-                            onEdit = { edited = subscription },
-                            onDelete = { pendingDelete = subscription },
-                        )
-                    }
-                }
+            when (selectedTab) {
+                0 -> SubscriptionsScreen(
+                    viewModel = viewModel,
+                    text = text,
+                    onAdd = { adding = true },
+                    onCopy = { url -> clipboard.setText(AnnotatedString(url)) },
+                    onShowQr = { qrSubscription = it },
+                    onEdit = { edited = it },
+                    onDelete = { pendingDelete = it },
+                )
+                else -> SettingsScreen(viewModel = viewModel, text = text, onExit = onExit)
             }
         }
     }
@@ -395,6 +317,253 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun SubscriptionsScreen(
+    viewModel: AppViewModel,
+    text: UiStrings,
+    onAdd: () -> Unit,
+    onCopy: (String) -> Unit,
+    onShowQr: (Subscription) -> Unit,
+    onEdit: (Subscription) -> Unit,
+    onDelete: (Subscription) -> Unit,
+) {
+    val state = viewModel.state
+    Column(
+        modifier = Modifier.fillMaxSize().padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Card(Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(text.server, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (viewModel.serverRunning) "${text.running}: ${viewModel.activeBaseUrl()}" else text.stopped,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    viewModel.serverError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Switch(
+                    checked = state.settings.serverEnabled,
+                    onCheckedChange = { viewModel.updateSettings(state.settings.copy(serverEnabled = it)) },
+                )
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "${text.subscriptionCount}: ${state.subscriptions.size}",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Button(onClick = onAdd) {
+                Icon(Icons.Default.Add, null)
+                Spacer(Modifier.width(8.dp))
+                Text(text.add)
+            }
+        }
+        HorizontalDivider()
+        if (state.subscriptions.isEmpty()) {
+            Text(
+                text.empty,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp),
+            )
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(state.subscriptions, key = { it.id }) { subscription ->
+                    val subscriptionUrl = "${viewModel.activeBaseUrl()}/sub/${subscription.id}"
+                    SubscriptionCard(
+                        subscription = subscription,
+                        baseUrl = viewModel.activeBaseUrl(),
+                        text = text,
+                        onCopy = { onCopy(subscriptionUrl) },
+                        showQr = state.settings.bindMode == BindMode.LAN,
+                        onShowQr = { onShowQr(subscription) },
+                        checkState = viewModel.subscriptionChecks[subscription.id],
+                        lastRequest = viewModel.lastSubscriptionRequests[subscription.id],
+                        onCheck = { viewModel.checkSubscription(subscription) },
+                        onEdit = { onEdit(subscription) },
+                        onDelete = { onDelete(subscription) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsScreen(viewModel: AppViewModel, text: UiStrings, onExit: () -> Unit) {
+    val state = viewModel.state
+    var lanInterfaceMenuExpanded by remember { mutableStateOf(false) }
+    var portText by remember(state.settings.port) { mutableStateOf(state.settings.port.toString()) }
+    val validatedPort = InputValidator.validPort(portText)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            SettingsCard(title = text.appearance) {
+                Text(text.theme, style = MaterialTheme.typography.bodyLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ThemeMode.entries.forEach { mode ->
+                        val label = when (mode) {
+                            ThemeMode.DARK -> text.darkTheme
+                            ThemeMode.LIGHT -> text.lightTheme
+                            ThemeMode.SYSTEM -> text.systemTheme
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = state.settings.themeMode == mode,
+                                onClick = { viewModel.updateSettings(state.settings.copy(themeMode = mode)) },
+                            )
+                            Text(label)
+                            Spacer(Modifier.width(14.dp))
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            SettingsCard(title = text.serverSettings) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(text.server, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            if (viewModel.serverRunning) "${text.running}: ${viewModel.activeBaseUrl()}" else text.stopped,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = state.settings.serverEnabled,
+                        onCheckedChange = { viewModel.updateSettings(state.settings.copy(serverEnabled = it)) },
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = state.settings.bindMode == BindMode.LAN,
+                        onCheckedChange = {
+                            viewModel.updateSettings(
+                                state.settings.copy(bindMode = if (it) BindMode.LAN else BindMode.LOCAL),
+                            )
+                        },
+                    )
+                    Text(text.lanMode)
+                    Spacer(Modifier.width(20.dp))
+                    OutlinedTextField(
+                        value = portText,
+                        onValueChange = { portText = it.filter(Char::isDigit).take(5) },
+                        label = { Text(text.port) },
+                        isError = validatedPort == null,
+                        supportingText = { if (validatedPort == null) Text(text.invalidPort) },
+                        singleLine = true,
+                        modifier = Modifier.width(130.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        enabled = validatedPort != null && validatedPort != state.settings.port,
+                        onClick = {
+                            validatedPort?.let { viewModel.updateSettings(state.settings.copy(port = it)) }
+                        },
+                    ) {
+                        Text(text.apply)
+                    }
+                }
+                if (state.settings.bindMode == BindMode.LAN) {
+                    Text(text.lanWarning, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    val interfaces = NetworkAddresses.privateIpv4Interfaces()
+                    val selectedInterface = interfaces.firstOrNull { it.address == state.settings.lanAddress }
+                    val selectedLabel = when {
+                        state.settings.lanAddress.isBlank() -> text.automaticInterface
+                        selectedInterface != null -> interfaceLabel(selectedInterface)
+                        else -> "${state.settings.lanAddress} (${text.unavailable})"
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${text.lanInterface}:")
+                        Spacer(Modifier.width(12.dp))
+                        Box(Modifier.weight(1f)) {
+                            OutlinedButton(
+                                onClick = { lanInterfaceMenuExpanded = true },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(selectedLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            DropdownMenu(
+                                expanded = lanInterfaceMenuExpanded,
+                                onDismissRequest = { lanInterfaceMenuExpanded = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(text.automaticInterface) },
+                                    onClick = {
+                                        lanInterfaceMenuExpanded = false
+                                        viewModel.updateSettings(state.settings.copy(lanAddress = ""))
+                                    },
+                                )
+                                interfaces.forEach { network ->
+                                    DropdownMenuItem(
+                                        text = { Text(interfaceLabel(network)) },
+                                        onClick = {
+                                            lanInterfaceMenuExpanded = false
+                                            viewModel.updateSettings(state.settings.copy(lanAddress = network.address))
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (interfaces.isEmpty()) {
+                        Text(text.noLanInterfaces, color = MaterialTheme.colorScheme.error)
+                    } else {
+                        val shownAddresses = selectedInterface?.let { listOf(it.address) }
+                            ?: interfaces.map(LanInterface::address)
+                        Text(
+                            shownAddresses.joinToString("  •  ") { "http://$it:${state.settings.port}" },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                viewModel.serverError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+        item {
+            SettingsCard(title = text.applicationSettings) {
+                CheckRow(
+                    checked = state.settings.launchAtLogin,
+                    onChecked = {
+                        viewModel.updateSettings(state.settings.copy(launchAtLogin = it), updateAutostart = true)
+                    },
+                    label = text.autostart,
+                )
+                OutlinedButton(onClick = onExit) {
+                    Icon(Icons.AutoMirrored.Filled.ExitToApp, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(text.fullExit)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsCard(title: String, content: @Composable () -> Unit) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            content()
+        }
     }
 }
 
