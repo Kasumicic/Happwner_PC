@@ -22,7 +22,7 @@ object PortDiagnostics {
             .orEmpty()
         val address = when (settings.bindMode) {
             BindMode.LOCAL -> "127.0.0.1"
-            BindMode.LAN -> "0.0.0.0"
+            BindMode.LAN -> settings.lanAddress.ifBlank { "0.0.0.0" }
         }
 
         if (message.contains("Cannot assign requested address", ignoreCase = true)) {

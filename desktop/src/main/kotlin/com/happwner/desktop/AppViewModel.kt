@@ -135,7 +135,9 @@ class AppViewModel(
         val host = if (state.settings.bindMode == com.happwner.BindMode.LOCAL) {
             "127.0.0.1"
         } else {
-            NetworkAddresses.privateIpv4().firstOrNull() ?: "127.0.0.1"
+            state.settings.lanAddress.ifBlank {
+                NetworkAddresses.privateIpv4().firstOrNull() ?: "127.0.0.1"
+            }
         }
         return "http://$host:${state.settings.port}"
     }

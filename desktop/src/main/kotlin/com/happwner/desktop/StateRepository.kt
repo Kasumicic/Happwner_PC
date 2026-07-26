@@ -19,6 +19,7 @@ class StateRepository {
         val properties = Properties().apply { file.inputStream().use { load(it) } }
         val settings = ServerSettings(
             bindMode = runCatching { BindMode.valueOf(properties.getProperty("server.bindMode", "LOCAL")) }.getOrDefault(BindMode.LOCAL),
+            lanAddress = properties.getProperty("server.lanAddress", ""),
             port = properties.getProperty("server.port")?.toIntOrNull()?.takeIf { it in 1024..65535 } ?: 8166,
             serverEnabled = properties.getProperty("server.enabled", "true").toBoolean(),
             launchAtLogin = properties.getProperty("app.launchAtLogin", "false").toBoolean(),
@@ -49,6 +50,7 @@ class StateRepository {
         Files.createDirectories(AppPaths.configDirectory)
         val properties = Properties().apply {
             setProperty("server.bindMode", state.settings.bindMode.name)
+            setProperty("server.lanAddress", state.settings.lanAddress)
             setProperty("server.port", state.settings.port.toString())
             setProperty("server.enabled", state.settings.serverEnabled.toString())
             setProperty("app.launchAtLogin", state.settings.launchAtLogin.toString())

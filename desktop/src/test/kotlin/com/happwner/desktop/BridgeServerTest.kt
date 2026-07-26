@@ -85,6 +85,29 @@ class BridgeServerTest {
     }
 
     @Test
+    fun lanModeCanBindToSelectedAddress() {
+        val port = freePort()
+        val bridge = BridgeServer(stateProvider = { StoredState() })
+        try {
+            bridge.start(
+                ServerSettings(
+                    bindMode = BindMode.LAN,
+                    lanAddress = "127.0.0.1",
+                    port = port,
+                ),
+            )
+            val response = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder(URI("http://127.0.0.1:$port/health")).GET().build(),
+                HttpResponse.BodyHandlers.ofString(),
+            )
+
+            assertEquals(200, response.statusCode())
+        } finally {
+            bridge.close()
+        }
+    }
+
+    @Test
     fun recordsFailedSubscriptionRequest() {
         val upstream = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
             createContext("/sub") { exchange ->

@@ -29,7 +29,10 @@ class BridgeServer(
     @Synchronized
     fun start(settings: ServerSettings) {
         stop()
-        val address = if (settings.bindMode == BindMode.LOCAL) "127.0.0.1" else "0.0.0.0"
+        val address = when (settings.bindMode) {
+            BindMode.LOCAL -> "127.0.0.1"
+            BindMode.LAN -> settings.lanAddress.ifBlank { "0.0.0.0" }
+        }
         val created = try {
             HttpServer.create(InetSocketAddress(address, settings.port), 32)
         } catch (error: Exception) {

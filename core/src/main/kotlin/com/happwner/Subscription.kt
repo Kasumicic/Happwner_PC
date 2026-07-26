@@ -18,6 +18,7 @@ enum class BindMode { LOCAL, LAN }
 
 data class ServerSettings(
     val bindMode: BindMode = BindMode.LOCAL,
+    val lanAddress: String = "",
     val port: Int = 8166,
     val serverEnabled: Boolean = true,
     val launchAtLogin: Boolean = false,
