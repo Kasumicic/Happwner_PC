@@ -35,7 +35,7 @@ On Arch Linux:
 ```bash
 sudo pacman -S --needed jdk21-openjdk base-devel
 make arch
-sudo pacman -U dist/happwner-pc-bin-0.1.0-1-x86_64.pkg.tar.zst
+sudo pacman -U dist/happwner-pc-bin-0.1.1-1-x86_64.pkg.tar.zst
 ```
 
 Use `make deb` for a Debian/Ubuntu package. Generated archives and packages are written to `dist/`; `make help` lists all build targets. The shared application/package version is stored in `gradle.properties`.

@@ -39,7 +39,7 @@ make test
 
 ```bash
 make arch
-sudo pacman -U dist/happwner-pc-bin-0.1.0-1-x86_64.pkg.tar.zst
+sudo pacman -U dist/happwner-pc-bin-0.1.1-1-x86_64.pkg.tar.zst
 ```
 
 После установки приложение доступно в меню и через команду `happwner-pc`.
