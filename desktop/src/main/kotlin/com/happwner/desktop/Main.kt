@@ -52,6 +52,9 @@ import com.happwner.BindMode
 import com.happwner.Subscription
 import java.awt.EventQueue
 import java.awt.Window as AwtWindow
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
@@ -230,6 +233,7 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
                             text = text,
                             onCopy = { clipboard.setText(AnnotatedString("${viewModel.activeBaseUrl()}/sub/${subscription.id}")) },
                             checkState = viewModel.subscriptionChecks[subscription.id],
+                            lastRequest = viewModel.lastSubscriptionRequests[subscription.id],
                             onCheck = { viewModel.checkSubscription(subscription) },
                             onEdit = { edited = subscription },
                             onDelete = { pendingDelete = subscription },
@@ -284,6 +288,7 @@ private fun SubscriptionCard(
     text: UiStrings,
     onCopy: () -> Unit,
     checkState: SubscriptionCheckState?,
+    lastRequest: SubscriptionRequestRecord?,
     onCheck: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -298,6 +303,17 @@ private fun SubscriptionCard(
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodySmall,
                 )
+                lastRequest?.let {
+                    Text(
+                        "${text.lastRequest}: ${formatRequestTime(it.completedAtMillis)} • ${requestResultText(it, text)}",
+                        color = if (it.error != null || it.profileCount == 0) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 checkState?.let {
                     Text(
                         checkResultText(it, text),
@@ -354,6 +370,20 @@ private fun formatBytes(bytes: Int): String = when {
     bytes >= 1024 * 1024 -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
     bytes >= 1024 -> "%.1f KB".format(bytes / 1024.0)
     else -> "$bytes B"
+}
+
+private val requestTimeFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss").withZone(ZoneId.systemDefault())
+
+private fun formatRequestTime(timestampMillis: Long): String =
+    requestTimeFormatter.format(Instant.ofEpochMilli(timestampMillis))
+
+private fun requestResultText(record: SubscriptionRequestRecord, text: UiStrings): String {
+    record.error?.let { return "${text.checkFailed}: $it" }
+    val source = record.statusCode?.let { "HTTP $it" } ?: text.localData
+    val size = record.sizeBytes?.let(::formatBytes)
+    val profiles = record.profileCount?.let { "${text.profiles}: $it" }
+    return listOfNotNull(source, size, profiles).joinToString(" • ")
 }
 
 @Composable

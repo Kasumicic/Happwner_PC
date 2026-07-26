@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit
 class BridgeServer(
     private val stateProvider: () -> StoredState,
     private val fetcher: SubscriptionFetcher = SubscriptionFetcher(),
+    private val onSubscriptionResult: (String, SubscriptionRequestRecord) -> Unit = { _, _ -> },
 ) : AutoCloseable {
     @Volatile private var server: HttpServer? = null
     @Volatile private var executor: ExecutorService? = null
@@ -83,7 +84,17 @@ class BridgeServer(
     private fun handleSaved(exchange: HttpExchange, id: String) {
         val subscription = stateProvider().subscriptions.firstOrNull { it.id == id && it.enabled }
             ?: return sendText(exchange, 404, "Subscription Not Found")
-        sendSubscription(exchange, fetcher.fetch(subscription))
+        val response = try {
+            fetcher.fetch(subscription)
+        } catch (error: Exception) {
+            onSubscriptionResult(
+                subscription.id,
+                SubscriptionRequestRecord.failure(error.message ?: "Неизвестная ошибка"),
+            )
+            throw error
+        }
+        onSubscriptionResult(subscription.id, SubscriptionRequestRecord.success(response))
+        sendSubscription(exchange, response)
     }
 
     private fun handleLegacy(exchange: HttpExchange) {

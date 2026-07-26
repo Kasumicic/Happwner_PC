@@ -39,6 +39,7 @@ data class UiStrings(
     val invalidPort: String,
     val deleteSubscriptionTitle: String,
     val deleteSubscriptionMessage: String,
+    val lastRequest: String,
 )
 
 fun strings(language: String): UiStrings = if (language == "en") {
@@ -54,6 +55,7 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Enter a port from 1024 to 65535",
         "Delete subscription?",
         "“%s” will be removed. This action cannot be undone.",
+        "Last request",
     )
 } else {
     UiStrings(
@@ -68,5 +70,6 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Введите порт от 1024 до 65535",
         "Удалить подписку?",
         "«%s» будет удалена. Это действие нельзя отменить.",
+        "Последний запрос",
     )
 }

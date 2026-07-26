@@ -35,8 +35,19 @@ class AppViewModel(
         private set
     var subscriptionChecks by mutableStateOf<Map<String, SubscriptionCheckState>>(emptyMap())
         private set
+    var lastSubscriptionRequests by mutableStateOf<Map<String, SubscriptionRequestRecord>>(emptyMap())
+        private set
 
-    private val server = BridgeServer(stateProvider = { state })
+    private val server = BridgeServer(
+        stateProvider = { state },
+        onSubscriptionResult = { id, result ->
+            EventQueue.invokeLater {
+                if (!closed.get() && state.subscriptions.any { it.id == id }) {
+                    lastSubscriptionRequests = lastSubscriptionRequests + (id to result)
+                }
+            }
+        },
+    )
     private val checkExecutor = Executors.newCachedThreadPool { runnable ->
         Thread(runnable, "happwner-subscription-check").apply { isDaemon = true }
     }
@@ -65,6 +76,7 @@ class AppViewModel(
         state.copy(subscriptions = state.subscriptions.filterNot { it.id == id }),
     ).also {
         subscriptionChecks = subscriptionChecks - id
+        lastSubscriptionRequests = lastSubscriptionRequests - id
     }
 
     fun checkSubscription(subscription: Subscription) {
@@ -95,6 +107,9 @@ class AppViewModel(
             EventQueue.invokeLater {
                 if (!closed.get() && state.subscriptions.any { it.id == subscription.id }) {
                     subscriptionChecks = subscriptionChecks + (subscription.id to result)
+                    lastSubscriptionRequests = lastSubscriptionRequests + (
+                        subscription.id to result.toRequestRecord()
+                    )
                 }
             }
         }
@@ -135,5 +150,22 @@ class AppViewModel(
         if (!closed.compareAndSet(false, true)) return
         server.close()
         checkExecutor.shutdownNow()
+    }
+
+    private fun SubscriptionCheckState.toRequestRecord(): SubscriptionRequestRecord = when (this) {
+        SubscriptionCheckState.Running -> error("Running check has no completed request record")
+        is SubscriptionCheckState.Success -> SubscriptionRequestRecord(
+            completedAtMillis = System.currentTimeMillis(),
+            statusCode = statusCode,
+            sizeBytes = sizeBytes,
+            profileCount = inspection.profileCount,
+        )
+        is SubscriptionCheckState.NoProfiles -> SubscriptionRequestRecord(
+            completedAtMillis = System.currentTimeMillis(),
+            statusCode = statusCode,
+            sizeBytes = sizeBytes,
+            profileCount = 0,
+        )
+        is SubscriptionCheckState.Error -> SubscriptionRequestRecord.failure(message)
     }
 }
