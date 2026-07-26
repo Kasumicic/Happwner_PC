@@ -69,22 +69,13 @@ import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import com.happwner.BindMode
 import com.happwner.Subscription
 import com.happwner.ThemeMode
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import java.awt.EventQueue
-import java.awt.Toolkit
 import java.awt.Window as AwtWindow
-import java.awt.datatransfer.DataFlavor
-import java.awt.datatransfer.StringSelection
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -116,7 +107,11 @@ fun main(args: Array<String>) = application {
     }
 
     DisposableEffect(Unit) {
-        onDispose { viewModel.close() }
+        val textShortcuts = DesktopTextShortcutDispatcher.install()
+        onDispose {
+            textShortcuts.close()
+            viewModel.close()
+        }
     }
 
     DisposableEffect(text.open, text.exit) {
@@ -823,62 +818,6 @@ private fun SubscriptionDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text(text.cancel) } },
     )
 }
-
-private fun Modifier.desktopTextShortcuts(
-    value: TextFieldValue,
-    onValueChange: (TextFieldValue) -> Unit,
-): Modifier = onPreviewKeyEvent { event ->
-    if (event.type != KeyEventType.KeyDown || !event.isCtrlPressed) {
-        return@onPreviewKeyEvent false
-    }
-    val selectionStart = value.selection.min
-    val selectionEnd = value.selection.max
-    when (event.key) {
-        Key.C -> {
-            if (selectionStart != selectionEnd) {
-                writeSystemClipboard(value.text.substring(selectionStart, selectionEnd))
-            } else {
-                true
-            }
-        }
-        Key.X -> {
-            if (selectionStart == selectionEnd) {
-                true
-            } else if (writeSystemClipboard(value.text.substring(selectionStart, selectionEnd))) {
-                val updated = value.text.removeRange(selectionStart, selectionEnd)
-                onValueChange(TextFieldValue(updated, TextRange(selectionStart)))
-                true
-            } else {
-                false
-            }
-        }
-        Key.V -> {
-            val clipboardText = readSystemClipboard() ?: return@onPreviewKeyEvent false
-            val updated = value.text.replaceRange(selectionStart, selectionEnd, clipboardText)
-            val cursor = selectionStart + clipboardText.length
-            onValueChange(TextFieldValue(updated, TextRange(cursor)))
-            true
-        }
-        Key.A -> {
-            onValueChange(value.copy(selection = TextRange(0, value.text.length)))
-            true
-        }
-        else -> false
-    }
-}
-
-private fun writeSystemClipboard(text: String): Boolean = runCatching {
-    Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null)
-}.isSuccess
-
-private fun readSystemClipboard(): String? = runCatching {
-    val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-    if (clipboard.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
-        clipboard.getData(DataFlavor.stringFlavor) as? String
-    } else {
-        null
-    }
-}.getOrNull()
 
 @Composable
 private fun CheckRow(checked: Boolean, onChecked: (Boolean) -> Unit, label: String) {
