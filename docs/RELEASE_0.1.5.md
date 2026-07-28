@@ -1,5 +1,7 @@
 # Happwner PC 0.1.5 Preview
 
+[Русская версия](RELEASE_0.1.5_RU.md)
+
 This is the first preview release of Happwner PC: a desktop subscription Bridge for Linux that serves decrypted and transformed subscriptions locally or across a trusted home network.
 
 ## What is ready

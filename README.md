@@ -30,9 +30,17 @@ This is a non-commercial desktop fork of the Android application [Happwner](http
 
 ## Screenshots
 
-| Subscriptions | Settings |
-|:--:|:--:|
-| <img src="docs/screenshots/subscriptions.png" alt="Happwner PC subscriptions tab" width="540"> | <img src="docs/screenshots/settings.png" alt="Happwner PC settings tab" width="540"> |
+### Subscriptions
+
+<p align="center">
+  <img src="docs/screenshots/subscriptions.png" alt="Happwner PC subscriptions tab" width="900">
+</p>
+
+### Settings
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" alt="Happwner PC settings tab" width="900">
+</p>
 
 ## Highlights
 
@@ -133,7 +141,7 @@ Before a stable release, the project still needs:
 - CI and Windows installer builds;
 - firewall instructions for common operating systems.
 
-See [TODO.md](TODO.md) for the complete roadmap.
+See [TODO_EN.md](TODO_EN.md) for the complete roadmap.
 
 ## Development
 

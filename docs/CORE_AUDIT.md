@@ -1,5 +1,7 @@
 # Happwner PC core compatibility audit
 
+[Русская версия](CORE_AUDIT_RU.md)
+
 Audit date: 2026-07-26
 
 Reference: Android Happwner 1.3, local repository `../Happwner`, commit `e9412c8`.

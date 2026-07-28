@@ -1,5 +1,7 @@
 # Happwner PC — TODO
 
+[English version](TODO_EN.md)
+
 ## P0 — ближайший рабочий релиз
 
 - [x] Заменить Compose `Tray` на нативную реализацию: AppIndicator/DBusMenu на Linux и системный backend на Windows.

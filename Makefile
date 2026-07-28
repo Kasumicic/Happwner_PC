@@ -108,14 +108,15 @@ release: release-check-tools
 	@cp "$(LINUX_ARCHIVE)" "$(ARCH_PACKAGE)" "$(RELEASE_DIR)/"
 	@find "$(DEB_OUTPUT)" -maxdepth 1 -type f -name "*$(APP_VERSION)*.deb" -exec cp -f {} "$(RELEASE_DIR)/" \;
 	@find "$(RPM_OUTPUT)" -maxdepth 1 -type f -name "*$(APP_VERSION)*.rpm" -exec cp -f {} "$(RELEASE_DIR)/" \;
-	@cp docs/RELEASE_$(APP_VERSION).md "$(RELEASE_DIR)/RELEASE_NOTES.md"
+	@sed 's/(RELEASE_$(APP_VERSION)_RU.md)/(RELEASE_NOTES_RU.md)/' docs/RELEASE_$(APP_VERSION).md > "$(RELEASE_DIR)/RELEASE_NOTES.md"
+	@sed 's/(RELEASE_$(APP_VERSION).md)/(RELEASE_NOTES.md)/' docs/RELEASE_$(APP_VERSION)_RU.md > "$(RELEASE_DIR)/RELEASE_NOTES_RU.md"
 	@cd "$(RELEASE_DIR)" && sha256sum *.tar.gz *.deb *.rpm *.pkg.tar.zst > SHA256SUMS
 	@printf '\n\033[1;32mRelease is ready: %s/\033[0m\n\n' "$(RELEASE_DIR)"
 	@find "$(RELEASE_DIR)" -maxdepth 1 -type f -printf '  %-64f %10s bytes\n' | sort
-	@printf '\nAttach the package files, RELEASE_NOTES.md, and SHA256SUMS to the GitHub release.\n\n'
+	@printf '\nAttach the package files, RELEASE_NOTES.md, RELEASE_NOTES_RU.md, and SHA256SUMS to the GitHub release.\n\n'
 
 artifacts:
-	@find "$(DIST_DIR)" "$(RELEASE_DIR)" -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.deb' -o -name '*.rpm' -o -name '*.pkg.tar.zst' -o -name 'SHA256SUMS' -o -name 'RELEASE_NOTES.md' \) -print 2>/dev/null | sort || true
+	@find "$(DIST_DIR)" "$(RELEASE_DIR)" -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.deb' -o -name '*.rpm' -o -name '*.pkg.tar.zst' -o -name 'SHA256SUMS' -o -name 'RELEASE_NOTES*.md' \) -print 2>/dev/null | sort || true
 
 clean:
 	$(GRADLE) clean

@@ -1,5 +1,7 @@
 # Changelog
 
+[Русская версия](CHANGELOG_RU.md)
+
 All notable changes to Happwner PC are documented in this file.
 
 ## 0.1.5 - 2026-07-26

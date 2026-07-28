@@ -17,8 +17,8 @@
 
 <p align="center">
   <b>Русский</b> · <a href="README.md">English</a> ·
-  <a href="docs/RELEASE_0.1.5.md">Что нового</a> ·
-  <a href="docs/CORE_AUDIT.md">Аудит ядра</a>
+  <a href="docs/RELEASE_0.1.5_RU.md">Что нового</a> ·
+  <a href="docs/CORE_AUDIT_RU.md">Аудит ядра</a>
 </p>
 
 > [!IMPORTANT]
@@ -30,9 +30,17 @@ Happwner PC получает подписку у провайдера, расш�
 
 ## Как это выглядит
 
-| Подписки | Настройки |
-|:--:|:--:|
-| <img src="docs/screenshots/subscriptions.png" alt="Вкладка подписок Happwner PC" width="540"> | <img src="docs/screenshots/settings.png" alt="Настройки Happwner PC" width="540"> |
+### Подписки
+
+<p align="center">
+  <img src="docs/screenshots/subscriptions.png" alt="Вкладка подписок Happwner PC" width="900">
+</p>
+
+### Настройки
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" alt="Настройки Happwner PC" width="900">
+</p>
 
 ## Главное
 
@@ -124,7 +132,7 @@ LAN-режим работает без авторизации. Любой уча
 
 ## Состояние Preview
 
-Криптографические алгоритмы, форматы ссылок и основной HTTP-конвейер сверены с Android-оригиналом и покрыты автоматическими тестами. Осознанные отличия ПК-версии перечислены в [аудите ядра](docs/CORE_AUDIT.md).
+Криптографические алгоритмы, форматы ссылок и основной HTTP-конвейер сверены с Android-оригиналом и покрыты автоматическими тестами. Осознанные отличия ПК-версии перечислены в [аудите ядра](docs/CORE_AUDIT_RU.md).
 
 До стабильного выпуска ещё предстоит:
 
