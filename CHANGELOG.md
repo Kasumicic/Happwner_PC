@@ -16,6 +16,7 @@ First public Linux preview.
 - occupied-port diagnostics with process information when available;
 - Linux StatusNotifierItem tray integration, login startup, and complete-exit actions;
 - Arch Linux, DEB, and portable Linux build targets;
+- RPM packaging and a single `make release` workflow with SHA-256 checksums;
 - generated compatibility tests for all embedded Happ, v2RayTun, and AES-GCM keys.
 
 ### Changed

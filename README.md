@@ -77,10 +77,25 @@ For Debian/Ubuntu:
 
 ```bash
 make deb
-sudo apt install ./dist/happwner-pc_0.1.5-1_amd64.deb
+sudo apt install ./dist/happwner-pc_0.1.5_amd64.deb
 ```
 
 The exact DEB filename may differ slightly; `make artifacts` lists generated files. Run `make help` for all available targets.
+
+For Fedora/openSUSE:
+
+```bash
+make rpm
+```
+
+To test the project and build the portable archive, DEB, RPM, and Arch package in one command:
+
+```bash
+sudo pacman -S --needed base-devel dpkg rpm-tools
+make release
+```
+
+Release-ready packages, release notes, and `SHA256SUMS` are written to the Git-ignored `release/` directory.
 
 ### Run from source
 

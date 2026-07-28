@@ -28,11 +28,13 @@ compose.desktop {
             jvmArgs("-Dskiko.renderApi=OPENGL")
         }
         nativeDistributions {
-            targetFormats(TargetFormat.Msi, TargetFormat.Deb)
+            targetFormats(TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
             packageName = "Happwner PC"
             packageVersion = project.version.toString()
             description = "Local and home-network proxy subscription server"
             vendor = "Happwner contributors"
+            copyright = "Happwner contributors; original core by Omegaplex and slavrom21"
+            licenseFile.set(rootProject.file("packaging/arch/TERMS"))
             modules(
                 "java.base",
                 "java.desktop",
@@ -51,6 +53,8 @@ compose.desktop {
                 iconFile.set(project.file("src/main/resources/happwner-pc.png"))
                 shortcut = true
                 menuGroup = "Network"
+                appCategory = "Network"
+                rpmLicenseType = "LicenseRef-Happwner-NonCommercial"
             }
         }
     }

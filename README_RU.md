@@ -77,10 +77,25 @@ tar -xzf dist/happwner-pc-0.1.5-linux-$(uname -m).tar.gz
 
 ```bash
 make deb
-sudo apt install ./dist/happwner-pc_0.1.5-1_amd64.deb
+sudo apt install ./dist/happwner-pc_0.1.5_amd64.deb
 ```
 
 Точное имя DEB может немного отличаться — `make artifacts` покажет созданные файлы. Все цели доступны через `make help`.
+
+Для Fedora/openSUSE:
+
+```bash
+make rpm
+```
+
+Чтобы проверить проект и собрать portable-архив, DEB, RPM и Arch-пакет одной командой:
+
+```bash
+sudo pacman -S --needed base-devel dpkg rpm-tools
+make release
+```
+
+Готовые к прикреплению в GitHub Release файлы, release notes и `SHA256SUMS` появятся в `release/`. Эта папка не отслеживается Git.
 
 ### Запуск из исходников
 
