@@ -1,6 +1,6 @@
 pkgname=happwner-pc-bin
 pkgver="${HAPPWNER_VERSION:-0.1.5}"
-pkgrel=2
+pkgrel=3
 pkgdesc="Local and home-network proxy subscription server"
 arch=('x86_64')
 url="https://github.com/Kasumicic/Happwner_PC"
@@ -13,9 +13,14 @@ options=('!strip' '!debug')
 source=(
   "happwner-pc-${pkgver}-linux-x86_64.tar.gz"
   'happwner-pc.desktop'
+  'happwner-pc-48.png'
+  'happwner-pc-64.png'
+  'happwner-pc-128.png'
+  'happwner-pc-256.png'
+  'happwner-pc-512.png'
   'TERMS'
 )
-sha256sums=('SKIP' 'SKIP' 'SKIP')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 package() {
   install -d "$pkgdir/opt/happwner-pc"
@@ -26,9 +31,12 @@ package() {
 
   install -Dm644 "$srcdir/happwner-pc.desktop" \
     "$pkgdir/usr/share/applications/happwner-pc.desktop"
-  install -Dm644 "$srcdir/Happwner PC/lib/Happwner PC.png" \
-    "$pkgdir/usr/share/icons/hicolor/1024x1024/apps/happwner-pc.png"
-  install -Dm644 "$srcdir/Happwner PC/lib/Happwner PC.png" \
+  local size
+  for size in 48 64 128 256 512; do
+    install -Dm644 "$srcdir/happwner-pc-${size}.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/happwner-pc.png"
+  done
+  install -Dm644 "$srcdir/happwner-pc-256.png" \
     "$pkgdir/usr/share/pixmaps/happwner-pc.png"
   install -Dm644 "$srcdir/TERMS" \
     "$pkgdir/usr/share/licenses/$pkgname/TERMS"

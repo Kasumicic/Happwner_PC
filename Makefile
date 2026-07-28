@@ -62,7 +62,7 @@ arch: app
 	@command -v makepkg >/dev/null || { echo "Install Arch build tools: sudo pacman -S --needed base-devel."; exit 1; }
 	@mkdir -p "$(ARCH_WORK)" "$(DIST_DIR)"
 	tar -C "$(APP_DIR)" -czf "$(ARCH_SOURCE)" "$(APP_NAME)"
-	cp packaging/arch/PKGBUILD packaging/arch/happwner-pc.desktop packaging/arch/TERMS "$(ARCH_WORK)/"
+	cp packaging/arch/PKGBUILD packaging/arch/happwner-pc.desktop packaging/arch/TERMS packaging/arch/icons/*.png "$(ARCH_WORK)/"
 	cd "$(ARCH_WORK)" && HAPPWNER_VERSION="$(APP_VERSION)" makepkg --force --cleanbuild --clean --noconfirm
 	cp -f "$(ARCH_WORK)"/*.pkg.tar.zst "$(DIST_DIR)/"
 	@echo "Arch packages:"

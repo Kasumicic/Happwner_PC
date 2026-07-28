@@ -17,7 +17,7 @@ This is the first preview release of Happwner PC: a desktop subscription Bridge 
 ### Arch Linux package
 
 ```bash
-sudo pacman -U happwner-pc-bin-0.1.5-2-x86_64.pkg.tar.zst
+sudo pacman -U happwner-pc-bin-0.1.5-3-x86_64.pkg.tar.zst
 ```
 
 ### Portable Linux archive

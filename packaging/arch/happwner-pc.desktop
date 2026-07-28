@@ -1,4 +1,5 @@
 [Desktop Entry]
+Version=1.5
 Type=Application
 Name=Happwner PC
 Name[ru]=Happwner PC
@@ -7,10 +8,12 @@ GenericName[ru]=Сервер подписок
 Comment=Serve decrypted VPN subscriptions locally or across a trusted home network
 Comment[ru]=Локальная раздача VPN-подписок на компьютере и в доверенной домашней сети
 Exec=happwner-pc
+TryExec=happwner-pc
 Icon=happwner-pc
 Terminal=false
 Categories=Network;
 Keywords=VPN;Proxy;Subscription;Bridge;LAN;
 Keywords[ru]=VPN;Прокси;Подписка;Мост;Локальная сеть;
 StartupNotify=true
+SingleMainWindow=true
 X-KDE-StartupNotify=true
