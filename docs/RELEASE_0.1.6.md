@@ -1,8 +1,8 @@
-# Happwner PC 0.1.6 Preview
+# Happwner PC 0.1.6
 
 [Русская версия](RELEASE_0.1.6_RU.md)
 
-This preview expands Happwner PC beyond the first Linux release with automated Windows packages, safer diagnostics, subscription traffic information, and more robust profile conversion.
+Happwner PC 0.1.6 is the first stable public desktop release, with automated Linux and Windows packages, safe diagnostics, subscription traffic information, and robust profile conversion.
 
 ## What's new
 

@@ -97,7 +97,7 @@ release-check-tools: check-linux check-version
 	fi
 
 release: release-check-tools
-	@printf '\n\033[1;36m==> Happwner PC %s Preview release\033[0m\n\n' "$(APP_VERSION)"
+	@printf '\n\033[1;36m==> Happwner PC %s release\033[0m\n\n' "$(APP_VERSION)"
 	@rm -rf "$(RELEASE_DIR)"
 	@mkdir -p "$(RELEASE_DIR)"
 	$(MAKE) test

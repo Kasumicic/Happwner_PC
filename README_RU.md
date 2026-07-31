@@ -9,9 +9,9 @@
 </p>
 
 <p align="center">
-  <img alt="Версия 0.1.6 Preview" src="https://img.shields.io/badge/version-0.1.6%20Preview-35d0eb?style=flat-square">
+  <img alt="Версия 0.1.6" src="https://img.shields.io/badge/version-0.1.6-35d0eb?style=flat-square">
   <img alt="Linux" src="https://img.shields.io/badge/Linux-supported-35d0eb?style=flat-square&logo=linux&logoColor=white">
-  <img alt="Windows" src="https://img.shields.io/badge/Windows-preview-35d0eb?style=flat-square&logo=windows&logoColor=white">
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-supported-35d0eb?style=flat-square&logo=windows&logoColor=white">
   <img alt="JDK 21" src="https://img.shields.io/badge/JDK-21-55515d?style=flat-square&logo=openjdk">
   <a href="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml"><img alt="Статус CI" src="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml/badge.svg"></a>
 </p>
@@ -24,7 +24,7 @@
 </p>
 
 > [!IMPORTANT]
-> **0.1.6 Preview** добавляет сборки Windows, безопасную диагностику, копирование готовых профилей, сведения о трафике и сроке подписки, а также исправления преобразования подписок. Проверка совместимости продолжается.
+> **0.1.6** — первый стабильный публичный релиз. В него входят сборки Linux и Windows, безопасная диагностика, копирование готовых профилей, сведения о трафике и сроке подписки, а также надёжное преобразование подписок.
 
 Happwner PC получает подписку у провайдера, расшифровывает и преобразует её, а затем отдаёт по постоянной локальной ссылке. Эту ссылку можно использовать в VPN-клиенте на том же компьютере или раздать телефонам, телевизорам и другим устройствам в доверенной домашней сети.
 
@@ -139,15 +139,14 @@ LAN-режим работает без авторизации. Любой уча
 
 Скопированные профили содержат данные подключения. Считайте содержимое буфера обмена секретным и очищайте его историю после вставки в доверенный клиент.
 
-## Состояние Preview
+## Состояние релиза
 
 Криптографические алгоритмы, форматы ссылок и основной HTTP-конвейер сверены с Android-оригиналом и покрыты автоматическими тестами. Осознанные отличия ПК-версии перечислены в [аудите ядра](docs/CORE_AUDIT_RU.md).
 
-До стабильного выпуска ещё предстоит:
+Первый стабильный релиз готов. Дальнейшая работа над совместимостью включает:
 
 - продолжить проверку других версий и клиентов, включая Hiddify, v2rayNG и Karing;
 - провести smoke-тест трея и автозапуска в Windows, GNOME и других Linux DE;
-- настроить CI и выпуск установщиков Windows;
 - добавить инструкции для популярных брандмауэров.
 
 Актуальный список работ находится в [TODO.md](TODO.md).

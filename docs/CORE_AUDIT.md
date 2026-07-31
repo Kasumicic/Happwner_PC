@@ -42,13 +42,12 @@ Intentional desktop differences:
 
 ## Release assessment
 
-The portable core is suitable for a first preview release: source parity is high and the cryptographic JVM port is covered by generated vectors for every bundled RSA key.
+The portable core is suitable for the first stable desktop release: source parity is high and the cryptographic JVM port is covered by generated vectors for every bundled RSA key.
 
-Items still requiring real-client or platform verification before calling the application stable:
+Items that still require continued real-client or platform verification after release:
 
 - import/update smoke tests in NekoBox, Hiddify, v2rayNG, Husi and Karing;
 - Windows and non-KDE tray testing;
-- Windows installers and automated CI builds;
 - firewall instructions for LAN mode;
 - timeout testing against real slow and stalled connections.
 

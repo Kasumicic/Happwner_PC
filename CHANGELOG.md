@@ -8,7 +8,7 @@ All notable changes to Happwner PC are documented in this file.
 
 ## 0.1.6 - 2026-08-01
 
-Second public preview, now with automated Windows packages.
+First stable public release, now with automated Windows packages.
 
 ### Added
 
@@ -30,7 +30,7 @@ Second public preview, now with automated Windows packages.
 - GitHub Actions now builds Linux, Arch Linux, and Windows release packages and publishes checksums;
 - release documentation and package examples now target version 0.1.6.
 
-See [the 0.1.6 Preview release notes](docs/RELEASE_0.1.6.md) for the user-facing summary.
+See [the 0.1.6 release notes](docs/RELEASE_0.1.6.md) for the user-facing summary.
 
 ## 0.1.5 - 2026-07-26
 

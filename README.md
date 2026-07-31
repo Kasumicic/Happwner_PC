@@ -9,9 +9,9 @@
 </p>
 
 <p align="center">
-  <img alt="Version 0.1.6 Preview" src="https://img.shields.io/badge/version-0.1.6%20Preview-35d0eb?style=flat-square">
+  <img alt="Version 0.1.6" src="https://img.shields.io/badge/version-0.1.6-35d0eb?style=flat-square">
   <img alt="Linux" src="https://img.shields.io/badge/Linux-supported-35d0eb?style=flat-square&logo=linux&logoColor=white">
-  <img alt="Windows" src="https://img.shields.io/badge/Windows-preview-35d0eb?style=flat-square&logo=windows&logoColor=white">
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-supported-35d0eb?style=flat-square&logo=windows&logoColor=white">
   <img alt="JDK 21" src="https://img.shields.io/badge/JDK-21-55515d?style=flat-square&logo=openjdk">
   <a href="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml/badge.svg"></a>
 </p>
@@ -24,7 +24,7 @@
 </p>
 
 > [!IMPORTANT]
-> **0.1.6 Preview** adds Windows builds, safe diagnostics, direct profile copying, traffic and expiry information, and additional subscription conversion fixes. Compatibility testing is still in progress.
+> **0.1.6** is the first stable public release. It includes Linux and Windows builds, safe diagnostics, direct profile copying, traffic and expiry information, and robust subscription conversion.
 
 Happwner PC fetches a provider subscription, decrypts and transforms it, then exposes it through a stable local URL. Use that URL in a VPN client on the same computer or share it with phones, TVs, and other devices on a trusted home network.
 
@@ -139,15 +139,14 @@ Configuration is stored under `%APPDATA%/HappwnerPC` on Windows and `${XDG_CONFI
 
 Copied profiles contain connection credentials. Treat the clipboard contents as secret and clear clipboard history after pasting them into a trusted client.
 
-## Preview status
+## Release status
 
 The cryptographic algorithms, link formats, and HTTP processing pipeline have been compared with the Android original and covered by automated tests. Deliberate desktop differences are documented in the [core compatibility audit](docs/CORE_AUDIT.md).
 
-Before a stable release, the project still needs:
+The first stable release is ready. Continued compatibility work includes:
 
 - continued checks across client versions, including Hiddify, v2rayNG, and Karing;
 - tray and startup smoke tests on Windows, GNOME, and other Linux desktop environments;
-- CI and Windows installer builds;
 - firewall instructions for common operating systems.
 
 See [TODO_EN.md](TODO_EN.md) for the complete roadmap.
