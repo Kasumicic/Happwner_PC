@@ -47,7 +47,7 @@ The portable core is suitable for the first stable desktop release: source parit
 Items that still require continued real-client or platform verification after release:
 
 - import/update smoke tests in NekoBox, Hiddify, v2rayNG, Husi and Karing;
-- Windows and non-KDE tray testing;
+- non-KDE Linux tray testing;
 - firewall instructions for LAN mode;
 - timeout testing against real slow and stalled connections.
 

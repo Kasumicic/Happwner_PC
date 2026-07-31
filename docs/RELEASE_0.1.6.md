@@ -34,4 +34,4 @@ Exact native package filenames can vary slightly. All packages include a Java ru
 
 Automated tests cover the subscription core, HTTP server, converters, encryption compatibility, response limits, and concurrent clients. Manual Android testing confirms LAN URLs in Exclave, Husi, Happ, and NekoBox. Incy blocks cleartext LAN HTTP; see the [client compatibility table](CLIENT_COMPATIBILITY.md) for the direct-mode workaround and its limitations.
 
-Windows tray, startup, installer, and real-client behavior still need manual testing on a Windows machine. Do not expose the LAN server directly to the public Internet, and do not publish source URLs, HWIDs, copied profiles, or other credentials in bug reports.
+The Windows MSI and portable ZIP have been manually tested on a real Windows system. Installation, startup, system tray, subscription handling, and the local server work correctly. Do not expose the LAN server directly to the public Internet, and do not publish source URLs, HWIDs, copied profiles, or other credentials in bug reports.

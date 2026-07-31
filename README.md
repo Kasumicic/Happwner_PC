@@ -24,7 +24,7 @@
 </p>
 
 > [!IMPORTANT]
-> **0.1.6** is the first stable public release. It includes Linux and Windows builds, safe diagnostics, direct profile copying, traffic and expiry information, and robust subscription conversion.
+> **0.1.6** is the first stable public release. It includes Linux and Windows builds, safe diagnostics, direct profile copying, traffic and expiry information, and robust subscription conversion. The Windows release has been manually tested and confirmed working.
 
 Happwner PC fetches a provider subscription, decrypts and transforms it, then exposes it through a stable local URL. Use that URL in a VPN client on the same computer or share it with phones, TVs, and other devices on a trusted home network.
 
@@ -146,7 +146,7 @@ The cryptographic algorithms, link formats, and HTTP processing pipeline have be
 The first stable release is ready. Continued compatibility work includes:
 
 - continued checks across client versions, including Hiddify, v2rayNG, and Karing;
-- tray and startup smoke tests on Windows, GNOME, and other Linux desktop environments;
+- tray and startup smoke tests on GNOME and other Linux desktop environments;
 - firewall instructions for common operating systems.
 
 See [TODO_EN.md](TODO_EN.md) for the complete roadmap.

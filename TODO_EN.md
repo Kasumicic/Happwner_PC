@@ -9,7 +9,7 @@
 - [x] Verify with an automated test that exiting stops the HTTP server and releases its port.
 - [x] Verify StatusNotifierItem registration, DBusMenu structure, and the exit command in KDE Plasma 6.
 - [x] Separate KDE tray actions: left click opens the window through `Activate()`, right click opens DBusMenu.
-- [ ] Manually test the context menu on Windows, GNOME, and other AppIndicator environments.
+- [ ] Manually test the context menu on GNOME and other Linux AppIndicator environments. Windows is verified.
 - [x] Add subscription deletion confirmation.
 - [x] Validate the source URL and port before saving.
 - [x] Add a **Check subscription** action with a clear HTTP status, response size, and processing error.
@@ -22,7 +22,7 @@
 
 - [x] Add a custom icon for the application, window, tray, and installers.
 - [x] Configure GitHub Actions for Linux and Windows tests and builds.
-- [ ] Publish MSI and ZIP packages for Windows, plus DEB and portable archives for Linux.
+- [x] Publish MSI and ZIP packages for Windows, plus DEB and portable archives for Linux.
 - [x] Diagnose occupied ports and show the process name/PID when available.
 - [ ] Add instructions for Windows Firewall, ufw, and firewalld.
 - [x] Allow selecting a LAN interface on computers with multiple IPv4 addresses.
