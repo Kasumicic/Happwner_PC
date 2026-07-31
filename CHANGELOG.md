@@ -6,6 +6,10 @@ All notable changes to Happwner PC are documented in this file.
 
 ## Unreleased
 
+## 0.1.6 - 2026-08-01
+
+Second public preview, now with automated Windows packages.
+
 ### Added
 
 - an in-memory diagnostics tab with request origin, client address, response status, duration, profile/protocol counts, and applied transformations;
@@ -20,6 +24,13 @@ All notable changes to Happwner PC are documented in this file.
 - `JSON → URI` conversion now preserves every supported outbound profile instead of only the first one;
 - IPv6 addresses are now bracketed correctly in Shadowsocks, Trojan, Hysteria2, and TUIC links;
 - provider response limits and concurrent subscription serving are covered by edge-case tests.
+
+### Changed
+
+- GitHub Actions now builds Linux, Arch Linux, and Windows release packages and publishes checksums;
+- release documentation and package examples now target version 0.1.6.
+
+See [the 0.1.6 Preview release notes](docs/RELEASE_0.1.6.md) for the user-facing summary.
 
 ## 0.1.5 - 2026-07-26
 

@@ -9,22 +9,22 @@
 </p>
 
 <p align="center">
-  <img alt="Версия 0.1.5 Preview" src="https://img.shields.io/badge/version-0.1.5%20Preview-35d0eb?style=flat-square">
+  <img alt="Версия 0.1.6 Preview" src="https://img.shields.io/badge/version-0.1.6%20Preview-35d0eb?style=flat-square">
   <img alt="Linux" src="https://img.shields.io/badge/Linux-supported-35d0eb?style=flat-square&logo=linux&logoColor=white">
-  <img alt="Windows planned" src="https://img.shields.io/badge/Windows-planned-55515d?style=flat-square&logo=windows">
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-preview-35d0eb?style=flat-square&logo=windows&logoColor=white">
   <img alt="JDK 21" src="https://img.shields.io/badge/JDK-21-55515d?style=flat-square&logo=openjdk">
   <a href="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml"><img alt="Статус CI" src="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
 <p align="center">
   <b>Русский</b> · <a href="README.md">English</a> ·
-  <a href="docs/RELEASE_0.1.5_RU.md">Что нового</a> ·
+  <a href="docs/RELEASE_0.1.6_RU.md">Что нового</a> ·
   <a href="docs/CORE_AUDIT_RU.md">Аудит ядра</a> ·
   <a href="docs/CLIENT_COMPATIBILITY_RU.md">Совместимость клиентов</a>
 </p>
 
 > [!IMPORTANT]
-> **0.1.5 Preview** — первый предварительный выпуск для Linux. Основные функции готовы и покрыты тестами, но совместимость со всеми VPN-клиентами и окружениями рабочего стола ещё проверяется.
+> **0.1.6 Preview** добавляет сборки Windows, безопасную диагностику, копирование готовых профилей, сведения о трафике и сроке подписки, а также исправления преобразования подписок. Проверка совместимости продолжается.
 
 Happwner PC получает подписку у провайдера, расшифровывает и преобразует её, а затем отдаёт по постоянной локальной ссылке. Эту ссылку можно использовать в VPN-клиенте на том же компьютере или раздать телефонам, телевизорам и другим устройствам в доверенной домашней сети.
 
@@ -67,7 +67,7 @@ Happwner PC получает подписку у провайдера, расш�
 ```bash
 sudo pacman -S --needed jdk21-openjdk base-devel
 make arch
-sudo pacman -U dist/happwner-pc-bin-0.1.5-3-x86_64.pkg.tar.zst
+sudo pacman -U dist/happwner-pc-bin-0.1.6-3-x86_64.pkg.tar.zst
 ```
 
 После установки Happwner PC появится в меню приложений. Запуск из терминала:
@@ -82,7 +82,7 @@ happwner-pc
 
 ```bash
 make linux
-tar -xzf dist/happwner-pc-0.1.5-linux-$(uname -m).tar.gz
+tar -xzf dist/happwner-pc-0.1.6-linux-$(uname -m).tar.gz
 ./Happwner\ PC/bin/Happwner\ PC
 ```
 
@@ -90,7 +90,7 @@ tar -xzf dist/happwner-pc-0.1.5-linux-$(uname -m).tar.gz
 
 ```bash
 make deb
-sudo apt install ./dist/happwner-pc_0.1.5_amd64.deb
+sudo apt install ./dist/happwner-pc_0.1.6_amd64.deb
 ```
 
 Точное имя DEB может немного отличаться — `make artifacts` покажет созданные файлы. Все цели доступны через `make help`.

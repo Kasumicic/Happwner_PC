@@ -1,5 +1,5 @@
 pkgname=happwner-pc-bin
-pkgver="${HAPPWNER_VERSION:-0.1.5}"
+pkgver="${HAPPWNER_VERSION:-0.1.6}"
 pkgrel=3
 pkgdesc="Local and home-network proxy subscription server"
 arch=('x86_64')

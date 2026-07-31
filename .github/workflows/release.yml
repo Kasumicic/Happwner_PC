@@ -9,7 +9,7 @@ on:
       release_tag:
         description: Existing or new GitHub Release tag
         required: true
-        default: v0.1.5-preview
+        default: v0.1.6-preview
         type: string
       publish:
         description: Upload artifacts to the GitHub Release

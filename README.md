@@ -9,22 +9,22 @@
 </p>
 
 <p align="center">
-  <img alt="Version 0.1.5 Preview" src="https://img.shields.io/badge/version-0.1.5%20Preview-35d0eb?style=flat-square">
+  <img alt="Version 0.1.6 Preview" src="https://img.shields.io/badge/version-0.1.6%20Preview-35d0eb?style=flat-square">
   <img alt="Linux" src="https://img.shields.io/badge/Linux-supported-35d0eb?style=flat-square&logo=linux&logoColor=white">
-  <img alt="Windows planned" src="https://img.shields.io/badge/Windows-planned-55515d?style=flat-square&logo=windows">
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-preview-35d0eb?style=flat-square&logo=windows&logoColor=white">
   <img alt="JDK 21" src="https://img.shields.io/badge/JDK-21-55515d?style=flat-square&logo=openjdk">
   <a href="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
 <p align="center">
   <a href="README_RU.md">Русский</a> · <b>English</b> ·
-  <a href="docs/RELEASE_0.1.5.md">Release notes</a> ·
+  <a href="docs/RELEASE_0.1.6.md">Release notes</a> ·
   <a href="docs/CORE_AUDIT.md">Core audit</a> ·
   <a href="docs/CLIENT_COMPATIBILITY.md">Client compatibility</a>
 </p>
 
 > [!IMPORTANT]
-> **0.1.5 Preview** is the first Linux preview. Core functionality is implemented and covered by automated tests, while compatibility testing across VPN clients and desktop environments is still in progress.
+> **0.1.6 Preview** adds Windows builds, safe diagnostics, direct profile copying, traffic and expiry information, and additional subscription conversion fixes. Compatibility testing is still in progress.
 
 Happwner PC fetches a provider subscription, decrypts and transforms it, then exposes it through a stable local URL. Use that URL in a VPN client on the same computer or share it with phones, TVs, and other devices on a trusted home network.
 
@@ -67,7 +67,7 @@ JDK 21 is required to build the project. Packaged applications include a Java ru
 ```bash
 sudo pacman -S --needed jdk21-openjdk base-devel
 make arch
-sudo pacman -U dist/happwner-pc-bin-0.1.5-3-x86_64.pkg.tar.zst
+sudo pacman -U dist/happwner-pc-bin-0.1.6-3-x86_64.pkg.tar.zst
 ```
 
 Happwner PC will appear in the application menu and can also be launched with:
@@ -82,7 +82,7 @@ Build a portable archive:
 
 ```bash
 make linux
-tar -xzf dist/happwner-pc-0.1.5-linux-$(uname -m).tar.gz
+tar -xzf dist/happwner-pc-0.1.6-linux-$(uname -m).tar.gz
 ./Happwner\ PC/bin/Happwner\ PC
 ```
 
@@ -90,7 +90,7 @@ For Debian/Ubuntu:
 
 ```bash
 make deb
-sudo apt install ./dist/happwner-pc_0.1.5_amd64.deb
+sudo apt install ./dist/happwner-pc_0.1.6_amd64.deb
 ```
 
 The exact DEB filename may differ slightly; `make artifacts` lists generated files. Run `make help` for all available targets.
