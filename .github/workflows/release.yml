@@ -172,11 +172,14 @@ jobs:
           merge-multiple: true
 
       - name: Add release notes and checksums
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
         run: |
           version="$(sed -n 's/^appVersion=//p' gradle.properties)"
-          sed "s/(RELEASE_${version}_RU.md)/(RELEASE_NOTES_RU.md)/" \
+          repository_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          sed "s#(RELEASE_${version}_RU.md)#(${repository_url}/blob/${RELEASE_TAG}/docs/RELEASE_${version}_RU.md)#" \
             "docs/RELEASE_${version}.md" > release/RELEASE_NOTES.md
-          sed "s/(RELEASE_${version}.md)/(RELEASE_NOTES.md)/" \
+          sed "s#(RELEASE_${version}.md)#(${repository_url}/blob/${RELEASE_TAG}/docs/RELEASE_${version}.md)#" \
             "docs/RELEASE_${version}_RU.md" > release/RELEASE_NOTES_RU.md
           cd release
           sha256sum *.tar.gz *.deb *.rpm *.pkg.tar.zst *.msi *.zip > SHA256SUMS
@@ -210,5 +213,8 @@ jobs:
               --title "$release_title" \
               --notes-file release/RELEASE_NOTES.md \
               "${prerelease_flag[@]}"
+          else
+            gh release edit "$RELEASE_TAG" \
+              --notes-file release/RELEASE_NOTES.md
           fi
           gh release upload "$RELEASE_TAG" release/* --clobber
