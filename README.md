@@ -5,7 +5,7 @@
 <h1 align="center">Happwner PC</h1>
 
 <p align="center">
-  A local subscription server for your computer and trusted home network
+  A desktop compatibility bridge for Happ subscriptions and other VPN clients
 </p>
 
 <p align="center">
@@ -26,7 +26,9 @@
 > [!IMPORTANT]
 > **0.1.6** is the first stable public release. It includes Linux and Windows builds, safe diagnostics, direct profile copying, traffic and expiry information, and robust subscription conversion. The Windows release has been manually tested and confirmed working.
 
-Happwner PC fetches a provider subscription, decrypts and transforms it, then exposes it through a stable local URL. Use that URL in a VPN client on the same computer or share it with phones, TVs, and other devices on a trusted home network.
+Happwner PC is primarily a compatibility bridge for subscriptions intended for Happ. Some providers return Happ-specific links, encryption, or device-bound responses that ordinary VPN clients cannot import directly. Happwner PC processes those formats and exposes the resulting standard profiles through a stable local URL, allowing a subscription you are authorized to use to work with Happ and other compatible clients.
+
+The local URL can be used by a VPN client on the same computer or shared with phones, TVs, and other devices on a trusted home network. The bridge also accepts several non-Happ source formats, so it is not limited exclusively to Happ subscriptions.
 
 This is a non-commercial desktop fork of the Android application [Happwner](https://github.com/Omegaplexx/Happwner). Android, Xposed, and LSPatch features have been removed; the portable cryptography, conversion logic, and subscription Bridge remain.
 
