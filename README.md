@@ -19,7 +19,8 @@
 <p align="center">
   <a href="README_RU.md">Русский</a> · <b>English</b> ·
   <a href="docs/RELEASE_0.1.5.md">Release notes</a> ·
-  <a href="docs/CORE_AUDIT.md">Core audit</a>
+  <a href="docs/CORE_AUDIT.md">Core audit</a> ·
+  <a href="docs/CLIENT_COMPATIBILITY.md">Client compatibility</a>
 </p>
 
 > [!IMPORTANT]
@@ -125,6 +126,8 @@ make test
 
 The default listener is `127.0.0.1:8166`. If another device cannot open `/health`, allow inbound TCP traffic to the selected port in the operating-system firewall.
 
+Manual Android testing confirms that LAN URLs work in Exclave, Husi, Happ, and NekoBox. Incy rejects the URL because its own network policy blocks cleartext HTTP. See the [client compatibility table](docs/CLIENT_COMPATIBILITY.md) for the recorded conditions and explanation.
+
 ## Security
 
 LAN mode has no authentication. Anyone on the local network who obtains a `/sub/<UUID>` URL can read that subscription. Enable it only on a trusted home network and **never expose the port to the Internet**.
@@ -141,7 +144,7 @@ The cryptographic algorithms, link formats, and HTTP processing pipeline have be
 
 Before a stable release, the project still needs:
 
-- real-subscription checks with NekoBox, Hiddify, v2rayNG, Husi, and Karing;
+- continued checks across client versions, including Hiddify, v2rayNG, and Karing;
 - tray and startup smoke tests on Windows, GNOME, and other Linux desktop environments;
 - CI and Windows installer builds;
 - firewall instructions for common operating systems.

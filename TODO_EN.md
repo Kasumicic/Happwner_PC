@@ -42,6 +42,7 @@
 
 - [x] Add generated cryptographic vectors for every embedded `happ://crypt`–`crypt5`, v2rayTun, and AES-GCM subscription key.
 - [ ] Add real anonymized INCY and encrypted-link fixtures from clients/providers.
-- [ ] Test NekoBox, Hiddify, v2rayNG, Husi, and Karing with local and LAN addresses.
+- [x] Test Android LAN URLs in Exclave, Husi, Happ, and NekoBox; document Incy's HTTP restriction.
+- [ ] Test Hiddify, v2rayNG, and Karing, plus loopback URLs in desktop clients.
 - [ ] Test timeouts, responses larger than 32 MiB, concurrent requests, and cache recovery.
 - [ ] Smoke-test startup, tray behavior, and uninstallation on Windows and major Linux desktop environments.
