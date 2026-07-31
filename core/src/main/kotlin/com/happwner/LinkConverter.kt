@@ -486,7 +486,7 @@ object LinkConverter {
             return buildShadowsocks(root, root.optString("remarks", ""))
         }
 
-        val protocol = root.optString("protocol", root.optString("type"))
+        val protocol = root.optString("protocol", root.optString("type")).lowercase()
         when (protocol) {
             "vmess" -> return buildVmess(root, root.optString("tag", root.optString("remarks", "")))
             "tuic" -> return buildTuic(root, root.optString("tag", root.optString("remarks", "")))
@@ -495,39 +495,22 @@ object LinkConverter {
         val obs = root.optJSONArray("outbounds")
         if (obs != null) {
             val rem = root.optString("remarks", "")
+            val converted = mutableListOf<String>()
             for (i in 0 until obs.length()) {
-                val ob = obs.getJSONObject(i)
-                val p = ob.optString("protocol", ob.optString("type"))
-                when (p) {
-                    "vless" -> {
-                        val c = buildVless(ob, rem)
-                        if (c != null) return c
-                    }
-                    "vmess" -> {
-                        val c = buildVmess(ob, rem)
-                        if (c != null) return c
-                    }
-                    "shadowsocks" -> {
-                        val c = buildShadowsocks(ob, rem)
-                        if (c != null) return c
-                    }
-                    "trojan" -> {
-                        val c = buildTrojan(ob, rem)
-                        if (c != null) return c
-                    }
-                    "hysteria2" -> {
-                        val c = buildHysteria2(ob, rem)
-                        if (c != null) return c
-                    }
-                    "tuic" -> {
-                        val c = buildTuic(ob, rem)
-                        if (c != null) return c
-                    }
-                    else -> {
-                       if (isShadowsocks(ob)) return buildShadowsocks(ob, rem)
-                    }
+                val ob = obs.optJSONObject(i) ?: continue
+                val p = ob.optString("protocol", ob.optString("type")).lowercase()
+                val link = when (p) {
+                    "vless" -> buildVless(ob, rem)
+                    "vmess" -> buildVmess(ob, rem)
+                    "shadowsocks" -> buildShadowsocks(ob, rem)
+                    "trojan" -> buildTrojan(ob, rem)
+                    "hysteria2" -> buildHysteria2(ob, rem)
+                    "tuic" -> buildTuic(ob, rem)
+                    else -> if (isShadowsocks(ob)) buildShadowsocks(ob, rem) else null
                 }
+                link?.let(converted::add)
             }
+            return converted.joinToString("\n").takeIf(String::isNotEmpty)
         }
         return null
     }
@@ -653,6 +636,9 @@ object LinkConverter {
     private fun encodeUriComponent(value: String): String =
         URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
+    private fun uriHost(address: String): String =
+        if (':' in address && !address.startsWith("[") && !address.endsWith("]")) "[$address]" else address
+
     // VMess: build the legacy JSON blob and base64 it
     private fun buildVmess(ob: JSONObject, rem: String): String? {
         return try {
@@ -720,7 +706,7 @@ object LinkConverter {
             val ui = Base64.encodeToString(credentials.toByteArray(), Base64.NO_WRAP)
             val finalRem = if (ob.has("remarks")) ob.getString("remarks") else rem
             val encRem = URLEncoder.encode(finalRem, "UTF-8").replace("+", "%20")
-            "ss://$ui@$address:$port#$encRem"
+            "ss://$ui@${uriHost(address)}:$port#$encRem"
         } catch (_: Exception) { null }
     }
 
@@ -750,7 +736,7 @@ object LinkConverter {
             }
 
             if (network == "ws") {
-                val ws = ss?.optJSONObject("wsSettings")
+                val ws = ss.optJSONObject("wsSettings")
                 val path = ws?.optString("path")
                 val host = ws?.optJSONObject("headers")?.optString("Host")
                 if (!path.isNullOrEmpty()) query["path"] = path
@@ -766,7 +752,7 @@ object LinkConverter {
             val finalRem = if (ob.has("remarks")) ob.getString("remarks") else rem
             val encRem = URLEncoder.encode(finalRem, "UTF-8").replace("+", "%20")
 
-            "trojan://$encPass@$address:$port$queryString#$encRem"
+            "trojan://$encPass@${uriHost(address)}:$port$queryString#$encRem"
         } catch (_: Exception) { null }
     }
 
@@ -796,7 +782,7 @@ object LinkConverter {
             val queryString = if (query.isNotEmpty()) "?" + query.toString().substring(1) else ""
             val encRem = URLEncoder.encode(rem, "UTF-8").replace("+", "%20")
 
-            "hysteria2://$password@$address:$port/$queryString#$encRem"
+            "hysteria2://${encodeUriComponent(password)}@${uriHost(address)}:$port/$queryString#$encRem"
         } catch (_: Exception) { null }
     }
 
@@ -838,7 +824,7 @@ object LinkConverter {
             val finalRem = if (ob.has("tag")) ob.getString("tag") else (if (ob.has("remarks")) ob.getString("remarks") else rem)
             val encRem = URLEncoder.encode(finalRem, "UTF-8").replace("+", "%20")
 
-            "tuic://$uuid:$password@$address:$port$queryString#$encRem"
+            "tuic://${encodeUriComponent(uuid)}:${encodeUriComponent(password)}@${uriHost(address)}:$port$queryString#$encRem"
         } catch (e: Exception) { null }
     }
 }

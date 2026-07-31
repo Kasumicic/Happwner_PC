@@ -6,6 +6,7 @@ import java.net.InetSocketAddress
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class SubscriptionFetcherTest {
     @Test
@@ -44,6 +45,27 @@ class SubscriptionFetcherTest {
         } finally {
             server.stop()
         }
+    }
+
+    @Test
+    fun rejectsResponseBeyondConfiguredLimit() {
+        val server = testServer(200, "vless://profile-that-is-too-large")
+        try {
+            val error = assertFailsWith<UpstreamException> {
+                SubscriptionFetcher(maxBodyBytes = 16).fetch(
+                    Subscription(name = "Test", source = server.url("/subscription")),
+                )
+            }
+
+            assertTrue(error.message.orEmpty().contains("16 байт"))
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun rejectsNonPositiveResponseLimit() {
+        assertFailsWith<IllegalArgumentException> { SubscriptionFetcher(maxBodyBytes = 0) }
     }
 
     private fun testServer(status: Int, response: String, userInfo: String? = null): TestHttpServer {

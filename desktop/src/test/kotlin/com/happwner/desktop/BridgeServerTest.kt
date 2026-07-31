@@ -12,6 +12,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -169,6 +170,72 @@ class BridgeServerTest {
         ServerSocket().use { socket ->
             socket.reuseAddress = true
             socket.bind(InetSocketAddress("127.0.0.1", port))
+        }
+    }
+
+    @Test
+    fun servesParallelClientRequests() {
+        val upstreamExecutor = java.util.concurrent.Executors.newCachedThreadPool()
+        val upstream = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+            createContext("/sub") { exchange ->
+                val body = "vless://parallel".toByteArray()
+                exchange.sendResponseHeaders(200, body.size.toLong())
+                exchange.responseBody.use { it.write(body) }
+            }
+            executor = upstreamExecutor
+            start()
+        }
+        val port = freePort()
+        val subscription = Subscription(
+            id = "parallel-id",
+            name = "Parallel",
+            source = "http://127.0.0.1:${upstream.address.port}/sub",
+        )
+        val bridge = BridgeServer(
+            stateProvider = { StoredState(subscriptions = listOf(subscription)) },
+        )
+        try {
+            bridge.start(ServerSettings(port = port))
+            val client = HttpClient.newHttpClient()
+            val requests = (1..16).map {
+                client.sendAsync(
+                    HttpRequest.newBuilder(URI("http://127.0.0.1:$port/sub/${subscription.id}")).GET().build(),
+                    HttpResponse.BodyHandlers.ofString(),
+                )
+            }
+
+            val responses = requests.map { it.get(5, TimeUnit.SECONDS) }
+            assertTrue(responses.all { it.statusCode() == 200 && it.body() == "vless://parallel" })
+        } finally {
+            bridge.close()
+            upstream.stop(0)
+            upstreamExecutor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun disabledSubscriptionIsNotFetched() {
+        val port = freePort()
+        val subscription = Subscription(
+            id = "disabled-id",
+            name = "Disabled",
+            source = "http://127.0.0.1:1/unreachable",
+            enabled = false,
+        )
+        val bridge = BridgeServer(
+            stateProvider = { StoredState(subscriptions = listOf(subscription)) },
+        )
+        try {
+            bridge.start(ServerSettings(port = port))
+            val response = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder(URI("http://127.0.0.1:$port/sub/${subscription.id}")).GET().build(),
+                HttpResponse.BodyHandlers.ofString(),
+            )
+
+            assertEquals(404, response.statusCode())
+            assertEquals("Subscription Not Found", response.body())
+        } finally {
+            bridge.close()
         }
     }
 

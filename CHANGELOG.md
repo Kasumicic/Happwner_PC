@@ -15,6 +15,12 @@ All notable changes to Happwner PC are documented in this file.
 - `Subscription-Userinfo` parsing with used and remaining traffic, quota, and subscription expiry;
 - an authors and contacts section with avatars and links to GitHub profiles and projects.
 
+### Fixed
+
+- `JSON → URI` conversion now preserves every supported outbound profile instead of only the first one;
+- IPv6 addresses are now bracketed correctly in Shadowsocks, Trojan, Hysteria2, and TUIC links;
+- provider response limits and concurrent subscription serving are covered by edge-case tests.
+
 ## 0.1.5 - 2026-07-26
 
 First public Linux preview.

@@ -19,7 +19,13 @@ data class FetchedSubscription(
     val userInfo: SubscriptionUserInfo? = SubscriptionUserInfoParser.parse(headers),
 )
 
-class SubscriptionFetcher {
+class SubscriptionFetcher(
+    private val maxBodyBytes: Long = MAX_BODY_BYTES,
+) {
+    init {
+        require(maxBodyBytes > 0) { "Лимит ответа должен быть положительным" }
+    }
+
     private val client = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(15))
         .followRedirects(HttpClient.Redirect.NORMAL)
@@ -67,7 +73,7 @@ class SubscriptionFetcher {
                 val read = input.read(buffer)
                 if (read < 0) break
                 total += read
-                if (total > MAX_BODY_BYTES) throw UpstreamException("Ответ превышает лимит 32 МБ")
+                if (total > maxBodyBytes) throw UpstreamException("Ответ превышает лимит ${formatLimit(maxBodyBytes)}")
                 output.write(buffer, 0, read)
             }
         }
@@ -90,5 +96,8 @@ class SubscriptionFetcher {
 
     companion object {
         private const val MAX_BODY_BYTES = 32L * 1024 * 1024
+
+        private fun formatLimit(bytes: Long): String =
+            if (bytes % (1024 * 1024) == 0L) "${bytes / (1024 * 1024)} МБ" else "$bytes байт"
     }
 }

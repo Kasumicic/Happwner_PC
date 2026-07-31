@@ -70,7 +70,7 @@ object IncyLinks {
 
         val candidate = carveIncyCandidate(trimmed, start)
         val rawDecoded = try { Uri.decode(candidate) } catch (_: Throwable) { candidate }
-        var decoded = (rawDecoded ?: candidate).trim()
+        var decoded = rawDecoded.trim()
 
         var guard = 0
         while (guard < EXTRACT_MAX_DEPTH && decoded.startsWith("incy%", ignoreCase = true)) {

@@ -50,6 +50,8 @@ Items still requiring real-client or platform verification before calling the ap
 - Windows and non-KDE tray testing;
 - Windows installers and automated CI builds;
 - firewall instructions for LAN mode;
-- timeout, oversized-response and concurrent-request stress tests.
+- timeout testing against real slow and stalled connections.
+
+The oversized-response limit and concurrent client request handling are now covered by automated tests.
 
 These are release-engineering and integration risks, not known missing decryption algorithms.

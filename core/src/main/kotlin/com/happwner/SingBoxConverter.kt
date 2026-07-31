@@ -1917,7 +1917,7 @@ object SingBoxConverter {
                 val v = hosts.opt(host)
                 val ipsList = when (v) {
                     is String -> listOf(v as Any?)
-                    is JSONArray -> (0 until v.length()).map { v.opt(it) as Any? }
+                    is JSONArray -> (0 until v.length()).map { v.opt(it) }
                     else -> emptyList()
                 }
                 val ipsOnly = ipsList.filter { isIpLiteral(it) }.map { it as String }

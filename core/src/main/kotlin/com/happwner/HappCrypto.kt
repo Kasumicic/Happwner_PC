@@ -216,7 +216,7 @@ object HappCrypto {
 
         val candidate = carveHappCandidate(trimmed, start)
         val rawDecoded = try { Uri.decode(candidate) } catch (_: Throwable) { candidate }
-        var decoded = (rawDecoded ?: candidate).trim()
+        var decoded = rawDecoded.trim()
 
         var guard = 0
         // Keep url-decoding while it still begins with an encoded happ%

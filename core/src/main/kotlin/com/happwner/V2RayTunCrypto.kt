@@ -194,7 +194,7 @@ object V2RayTunCrypto {
 
         val candidate = carveV2RayCandidate(trimmed, start)
         val rawDecoded = try { Uri.decode(candidate) } catch (_: Throwable) { candidate }
-        var decoded = (rawDecoded ?: candidate).trim()
+        var decoded = rawDecoded.trim()
 
         var guard = 0
         while (guard < EXTRACT_MAX_DEPTH && decoded.startsWith("v2raytun%", ignoreCase = true)) {
