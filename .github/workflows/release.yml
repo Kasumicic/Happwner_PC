@@ -74,8 +74,19 @@ jobs:
         shell: bash
 
     steps:
-      - name: Install JDK and Git
-        run: pacman -Syu --noconfirm jdk21-openjdk git
+      - name: Install build and runtime dependencies
+        run: |
+          pacman -Syu --noconfirm \
+            jdk21-openjdk \
+            git \
+            glibc \
+            gcc-libs \
+            libx11 \
+            libglvnd \
+            fontconfig \
+            freetype2 \
+            alsa-lib \
+            hicolor-icon-theme
 
       - name: Check out repository
         uses: actions/checkout@v6
