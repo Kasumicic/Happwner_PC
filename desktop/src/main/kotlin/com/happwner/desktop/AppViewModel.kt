@@ -25,9 +25,18 @@ sealed interface SubscriptionCheckState {
     data class Error(val message: String) : SubscriptionCheckState
 }
 
+sealed interface ProfileCopyState {
+    data object Running : ProfileCopyState
+    data class Success(val profileCount: Int, val sizeBytes: Int) : ProfileCopyState
+    data object NoProfiles : ProfileCopyState
+    data object ClipboardError : ProfileCopyState
+    data class Error(val message: String) : ProfileCopyState
+}
+
 class AppViewModel(
     private val repository: StateRepository = StateRepository(),
     private val subscriptionFetcher: SubscriptionFetcher = SubscriptionFetcher(),
+    private val clipboardWriter: (String) -> Boolean = ::writeSystemClipboard,
 ) : AutoCloseable {
     var state by mutableStateOf(repository.load())
         private set
@@ -38,6 +47,8 @@ class AppViewModel(
     var lastSubscriptionRequests by mutableStateOf<Map<String, SubscriptionRequestRecord>>(emptyMap())
         private set
     var subscriptionActivity by mutableStateOf<List<SubscriptionActivity>>(emptyList())
+        private set
+    var profileCopyStates by mutableStateOf<Map<String, ProfileCopyState>>(emptyMap())
         private set
 
     private val server = BridgeServer(
@@ -83,6 +94,7 @@ class AppViewModel(
         state.copy(subscriptions = state.subscriptions.filterNot { it.id == id }),
     ).also {
         subscriptionChecks = subscriptionChecks - id
+        profileCopyStates = profileCopyStates - id
         lastSubscriptionRequests = lastSubscriptionRequests - id
         subscriptionActivity = subscriptionActivity.filterNot { activity -> activity.subscriptionId == id }
     }
@@ -121,6 +133,51 @@ class AppViewModel(
                         result.toRequestRecord(subscription, elapsedMillis(startedAt)),
                     )
                 }
+            }
+        }
+    }
+
+    fun copyProfiles(subscription: Subscription) {
+        if (closed.get()) return
+        profileCopyStates = profileCopyStates + (subscription.id to ProfileCopyState.Running)
+        checkExecutor.submit {
+            val startedAt = System.nanoTime()
+            val result = runCatching { subscriptionFetcher.fetch(subscription) }
+            EventQueue.invokeLater {
+                if (closed.get() || state.subscriptions.none { it.id == subscription.id }) return@invokeLater
+                result.fold(
+                    onSuccess = { response ->
+                        recordActivity(
+                            subscription.id,
+                            SubscriptionRequestRecord.success(
+                                response = response,
+                                subscription = subscription,
+                                durationMillis = elapsedMillis(startedAt),
+                                origin = SubscriptionRequestOrigin.PROFILE_COPY,
+                            ),
+                        )
+                        profileCopyStates = profileCopyStates + (
+                            subscription.id to SubscriptionClipboard.copy(response, clipboardWriter)
+                        )
+                    },
+                    onFailure = { error ->
+                        val message = error.message ?: "Неизвестная ошибка"
+                        recordActivity(
+                            subscription.id,
+                            SubscriptionRequestRecord.failure(
+                                message = message,
+                                subscription = subscription,
+                                durationMillis = elapsedMillis(startedAt),
+                                origin = SubscriptionRequestOrigin.PROFILE_COPY,
+                            ),
+                        )
+                        profileCopyStates = profileCopyStates + (
+                            subscription.id to ProfileCopyState.Error(
+                                DiagnosticSanitizer.errorMessage(message, subscription),
+                            )
+                        )
+                    },
+                )
             }
         }
     }
@@ -165,7 +222,7 @@ class AppViewModel(
         subscriptionActivity = emptyList()
     }
 
-    fun copyDiagnosticReport(): Boolean = writeSystemClipboard(
+    fun copyDiagnosticReport(): Boolean = clipboardWriter(
         DiagnosticReport.create(
             settings = state.settings,
             serverRunning = serverRunning,

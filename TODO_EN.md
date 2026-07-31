@@ -27,6 +27,7 @@
 - [ ] Add instructions for Windows Firewall, ufw, and firewalld.
 - [x] Allow selecting a LAN interface on computers with multiple IPv4 addresses.
 - [x] Add a QR code for LAN links to simplify phone imports.
+- [x] Add a safe request log, a copyable diagnostic report, and direct copying of processed profiles.
 
 ## P2 — reliability and security
 

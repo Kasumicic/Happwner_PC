@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Subscriptions
@@ -248,6 +249,12 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
                     text = { Text(text.settingsTab) },
                     icon = { Icon(Icons.Default.Settings, null) },
                 )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    text = { Text(text.diagnosticsTab) },
+                    icon = { Icon(Icons.Default.Info, null) },
+                )
             }
             when (selectedTab) {
                 0 -> SubscriptionsScreen(
@@ -259,7 +266,8 @@ private fun AppScreen(viewModel: AppViewModel, onExit: () -> Unit) {
                     onEdit = { edited = it },
                     onDelete = { pendingDelete = it },
                 )
-                else -> SettingsScreen(viewModel = viewModel, text = text, onExit = onExit)
+                1 -> SettingsScreen(viewModel = viewModel, text = text, onExit = onExit)
+                else -> DiagnosticsScreen(viewModel = viewModel, text = text)
             }
         }
     }
@@ -405,7 +413,9 @@ private fun SubscriptionsScreen(
                         onShowQr = { onShowQr(subscription) },
                         checkState = viewModel.subscriptionChecks[subscription.id],
                         lastRequest = viewModel.lastSubscriptionRequests[subscription.id],
+                        profileCopyState = viewModel.profileCopyStates[subscription.id],
                         onCheck = { viewModel.checkSubscription(subscription) },
+                        onCopyProfiles = { viewModel.copyProfiles(subscription) },
                         onEdit = { onEdit(subscription) },
                         onDelete = { onDelete(subscription) },
                     )
@@ -587,6 +597,112 @@ private fun SettingsScreen(viewModel: AppViewModel, text: UiStrings, onExit: () 
 }
 
 @Composable
+private fun DiagnosticsScreen(viewModel: AppViewModel, text: UiStrings) {
+    val activities = viewModel.subscriptionActivity
+    var reportCopied by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(text.diagnosticActivity, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "${text.events}: ${activities.size}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            OutlinedButton(
+                onClick = {
+                    reportCopied = viewModel.copyDiagnosticReport()
+                },
+            ) {
+                Icon(Icons.Default.ContentCopy, null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (reportCopied) text.reportCopied else text.copyReport)
+            }
+            Spacer(Modifier.width(8.dp))
+            TextButton(
+                enabled = activities.isNotEmpty(),
+                onClick = {
+                    viewModel.clearDiagnostics()
+                    reportCopied = false
+                },
+            ) {
+                Text(text.clearLog)
+            }
+        }
+        HorizontalDivider()
+        if (activities.isEmpty()) {
+            Text(
+                text.noActivity,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp),
+            )
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(activities) { activity ->
+                    DiagnosticActivityCard(activity, text)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticActivityCard(activity: SubscriptionActivity, text: UiStrings) {
+    val request = activity.request
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    activity.subscriptionName,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    formatRequestTime(request.completedAtMillis),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Text(
+                diagnosticResultText(request, text),
+                color = if (request.error != null || request.profileCount == 0) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            val origin = when (request.origin) {
+                SubscriptionRequestOrigin.CLIENT -> text.clientRequest
+                SubscriptionRequestOrigin.MANUAL_CHECK -> text.manualCheck
+                SubscriptionRequestOrigin.PROFILE_COPY -> text.profileCopy
+            }
+            val details = buildList {
+                add("${text.requestType}: $origin")
+                request.clientAddress?.let { add("${text.client}: $it") }
+                request.durationMillis?.let { add("${text.duration}: $it ms") }
+                if (request.transformations.isNotEmpty()) {
+                    add("${text.transformations}: ${request.transformations.joinToString()}")
+                }
+            }
+            Text(
+                details.joinToString(" • "),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
 private fun SettingsCard(title: String, content: @Composable () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(
@@ -612,64 +728,125 @@ private fun SubscriptionCard(
     onShowQr: () -> Unit,
     checkState: SubscriptionCheckState?,
     lastRequest: SubscriptionRequestRecord?,
+    profileCopyState: ProfileCopyState?,
     onCheck: () -> Unit,
+    onCopyProfiles: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Card(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(subscription.name, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "$baseUrl/sub/${subscription.id}",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                lastRequest?.let {
+        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(subscription.name, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "${text.lastRequest}: ${formatRequestTime(it.completedAtMillis)} • ${requestResultText(it, text)}",
-                        color = if (it.error != null || it.profileCount == 0) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        "$baseUrl/sub/${subscription.id}",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                checkState?.let {
+                IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, text.edit) }
+                IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, text.delete) }
+            }
+            lastRequest?.let {
+                Text(
+                    "${text.lastRequest}: ${formatRequestTime(it.completedAtMillis)} • ${requestResultText(it, text)}",
+                    color = if (it.error != null || it.profileCount == 0) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            checkState?.let {
+                Text(
+                    checkResultText(it, text),
+                    color = if (it is SubscriptionCheckState.Error || it is SubscriptionCheckState.NoProfiles) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                checkResponsePreview(it)?.takeIf(String::isNotBlank)?.let { preview ->
                     Text(
-                        checkResultText(it, text),
-                        color = if (it is SubscriptionCheckState.Error || it is SubscriptionCheckState.NoProfiles) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        "${text.response}: $preview",
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    checkResponsePreview(it)?.takeIf(String::isNotBlank)?.let { preview ->
-                        Text(
-                            "${text.response}: $preview",
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                }
+            }
+            profileCopyState?.let { copyState ->
+                Text(
+                    profileCopyResultText(copyState, text),
+                    color = if (
+                        copyState is ProfileCopyState.Error ||
+                        copyState is ProfileCopyState.ClipboardError ||
+                        copyState is ProfileCopyState.NoProfiles
+                    ) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(
+                    enabled = checkState !is SubscriptionCheckState.Running,
+                    onClick = onCheck,
+                ) { Text(if (checkState is SubscriptionCheckState.Running) text.checking else text.check) }
+                TextButton(onClick = onCopy) {
+                    Icon(Icons.Default.ContentCopy, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(text.copy)
+                }
+                TextButton(
+                    enabled = profileCopyState !is ProfileCopyState.Running,
+                    onClick = onCopyProfiles,
+                ) {
+                    Icon(Icons.Default.ContentCopy, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (profileCopyState is ProfileCopyState.Running) text.copyingProfiles else text.copyProfiles,
+                    )
+                }
+                if (showQr) {
+                    TextButton(onClick = onShowQr) {
+                        Icon(Icons.Default.QrCode2, null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(text.qrCode)
                     }
                 }
             }
-            TextButton(
-                enabled = checkState !is SubscriptionCheckState.Running,
-                onClick = onCheck,
-            ) { Text(if (checkState is SubscriptionCheckState.Running) text.checking else text.check) }
-            IconButton(onClick = onCopy) { Icon(Icons.Default.ContentCopy, text.copy) }
-            if (showQr) {
-                IconButton(onClick = onShowQr) { Icon(Icons.Default.QrCode2, text.qrCode) }
-            }
-            IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, text.edit) }
-            IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, text.delete) }
         }
     }
+}
+
+private fun profileCopyResultText(state: ProfileCopyState, text: UiStrings): String = when (state) {
+    ProfileCopyState.Running -> text.copyingProfiles
+    is ProfileCopyState.Success ->
+        "${text.profilesCopied}: ${state.profileCount} • ${formatBytes(state.sizeBytes)}"
+    ProfileCopyState.NoProfiles -> text.noProfiles
+    ProfileCopyState.ClipboardError -> text.clipboardFailed
+    is ProfileCopyState.Error -> "${text.checkFailed}: ${state.message}"
+}
+
+private fun diagnosticResultText(record: SubscriptionRequestRecord, text: UiStrings): String {
+    record.error?.let { return "${text.checkFailed}: $it" }
+    val servedStatus = record.servedStatusCode?.let { "HTTP $it" }
+    val providerStatus = record.statusCode
+        ?.takeIf { it != record.servedStatusCode }
+        ?.let { "${text.provider} HTTP $it" }
+    val size = record.sizeBytes?.let(::formatBytes)
+    val profiles = record.profileCount?.let { "${text.profiles}: $it" }
+    val protocols = record.protocols.takeIf { it.isNotEmpty() }
+        ?.entries?.joinToString { "${it.key}: ${it.value}" }
+    return listOfNotNull(servedStatus, providerStatus, size, profiles, protocols).joinToString(" • ")
 }
 
 private fun checkResultText(state: SubscriptionCheckState, text: UiStrings): String = when (state) {

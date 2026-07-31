@@ -4,6 +4,14 @@
 
 All notable changes to Happwner PC are documented in this file.
 
+## Unreleased
+
+### Added
+
+- an in-memory diagnostics tab with request origin, client address, response status, duration, profile/protocol counts, and applied transformations;
+- a sanitized copyable diagnostic report that excludes source URLs, HWIDs, subscription IDs, and profile contents;
+- direct copying of the complete fetched, decrypted, and transformed subscription response.
+
 ## 0.1.5 - 2026-07-26
 
 First public Linux preview.

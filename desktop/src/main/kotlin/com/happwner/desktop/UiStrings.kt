@@ -59,6 +59,25 @@ data class UiStrings(
     val generate: String,
     val useLastHwid: String,
     val noSavedHwid: String,
+    val diagnosticsTab: String,
+    val diagnosticActivity: String,
+    val copyReport: String,
+    val reportCopied: String,
+    val clearLog: String,
+    val noActivity: String,
+    val client: String,
+    val duration: String,
+    val transformations: String,
+    val requestType: String,
+    val clientRequest: String,
+    val manualCheck: String,
+    val profileCopy: String,
+    val copyProfiles: String,
+    val copyingProfiles: String,
+    val profilesCopied: String,
+    val clipboardFailed: String,
+    val provider: String,
+    val events: String,
 )
 
 fun strings(language: String): UiStrings = if (language == "en") {
@@ -79,6 +98,10 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Subscriptions", "Settings", "Appearance", "Theme", "Dark", "Light", "System",
         "Server", "Application", "Subscriptions",
         "Generate", "Use last", "No previously used HWID",
+        "Diagnostics", "Request activity", "Copy report", "Report copied", "Clear log",
+        "No requests recorded yet", "Client", "Duration", "Transformations", "Type",
+        "Subscription client", "Manual test", "Profile copy", "Copy profiles", "Copying…", "Profiles copied",
+        "Could not write to the clipboard", "Provider", "Events",
     )
 } else {
     UiStrings(
@@ -98,5 +121,9 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Подписки", "Настройки", "Оформление", "Тема", "Тёмная", "Светлая", "Системная",
         "Сервер", "Приложение", "Подписки",
         "Сгенерировать", "Вставить последний", "Ранее использованный HWID отсутствует",
+        "Диагностика", "Журнал обращений", "Скопировать отчёт", "Отчёт скопирован", "Очистить журнал",
+        "Обращений пока нет", "Клиент", "Время", "Преобразования", "Тип",
+        "Клиент подписки", "Ручная проверка", "Копирование профилей", "Скопировать профили", "Копируем…", "Профили скопированы",
+        "Не удалось записать данные в буфер обмена", "Провайдер", "События",
     )
 }

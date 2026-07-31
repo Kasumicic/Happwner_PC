@@ -51,6 +51,8 @@ This is a non-commercial desktop fork of the Android application [Happwner](http
 - **Provider compatibility.** Requests carry `x-hwid` and a configurable `User-Agent`; responses with `Encrypt-Tag` are decrypted.
 - **Profile conversion.** Optional Base64, JSON-to-URI, and Xray-to-sing-box transformations are available; Base64 decoding is enabled by default.
 - **Subscription inspection.** Checks report HTTP status, response size, discovered profiles and protocols, or a clear processing error.
+- **Direct profile copying.** Fetch, decrypt, transform, and copy the complete processed subscription without importing its URL.
+- **Safe diagnostics.** An in-memory activity log shows clients, timings, response details, and transformations; copied reports mask addresses and omit subscription secrets.
 - **Desktop-friendly UI.** Dark theme, tabs, LAN QR codes, HWID generation, system tray, login startup, and working native clipboard shortcuts.
 - **Network diagnostics.** Select a LAN interface and identify the process/PID occupying the desired port.
 
@@ -118,7 +120,7 @@ make test
 1. Select **Add subscription** and enter the upstream URL.
 2. Enter an HWID and User-Agent if required, or generate a new HWID.
 3. Select **Check** to confirm that the response contains profiles.
-4. Copy the local URL into NekoBox, Hiddify, v2rayNG, or another compatible client.
+4. Copy the local URL into NekoBox, Hiddify, v2rayNG, or another compatible client, or select **Copy profiles** to place the complete processed response on the clipboard.
 5. To serve other devices, enable **Home network (LAN)** and import the URL using its QR code.
 
 The default listener is `127.0.0.1:8166`. If another device cannot open `/health`, allow inbound TCP traffic to the selected port in the operating-system firewall.
@@ -130,6 +132,8 @@ LAN mode has no authentication. Anyone on the local network who obtains a `/sub/
 Legacy links containing arbitrary upstream URLs are restricted to loopback clients, preventing LAN devices from using the application as an unrestricted HTTP proxy.
 
 Configuration is stored under `%APPDATA%/HappwnerPC` on Windows and `${XDG_CONFIG_HOME:-~/.config}/happwner-pc` on Linux.
+
+Copied profiles contain connection credentials. Treat the clipboard contents as secret and clear clipboard history after pasting them into a trusted client.
 
 ## Preview status
 
