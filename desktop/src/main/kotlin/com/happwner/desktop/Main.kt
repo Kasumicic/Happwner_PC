@@ -28,8 +28,10 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -54,6 +56,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -63,7 +66,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -86,6 +94,11 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+
+private const val OMEGAPLEXX_PROFILE_URL = "https://github.com/Omegaplexx"
+private const val ORIGINAL_PROJECT_URL = "https://github.com/Omegaplexx/Happwner"
+private const val KASUMICIC_PROFILE_URL = "https://github.com/Kasumicic"
+private const val DESKTOP_PROJECT_URL = "https://github.com/Kasumicic/Happwner_PC"
 
 @OptIn(ExperimentalFoundationApi::class)
 fun main(args: Array<String>) = application {
@@ -428,6 +441,11 @@ private fun SubscriptionsScreen(
 @Composable
 private fun SettingsScreen(viewModel: AppViewModel, text: UiStrings, onExit: () -> Unit) {
     val state = viewModel.state
+    val uriHandler = LocalUriHandler.current
+    var linkOpenFailed by remember { mutableStateOf(false) }
+    val openLink: (String) -> Unit = { url ->
+        linkOpenFailed = runCatching { uriHandler.openUri(url) }.isFailure
+    }
     var lanInterfaceMenuExpanded by remember { mutableStateOf(false) }
     var portText by remember(state.settings.port) {
         mutableStateOf(TextFieldValue(state.settings.port.toString()))
@@ -590,6 +608,100 @@ private fun SettingsScreen(viewModel: AppViewModel, text: UiStrings, onExit: () 
                     Icon(Icons.AutoMirrored.Filled.ExitToApp, null)
                     Spacer(Modifier.width(8.dp))
                     Text(text.fullExit)
+                }
+            }
+        }
+        item {
+            SettingsCard(title = text.contacts) {
+                Text(
+                    text.supportWithStars,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ContributorCard(
+                        name = "Omegaplexx",
+                        role = text.originalAuthor,
+                        avatarResource = "omegaplexx.jpg",
+                        profileUrl = OMEGAPLEXX_PROFILE_URL,
+                        projectUrl = ORIGINAL_PROJECT_URL,
+                        text = text,
+                        onOpenLink = openLink,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ContributorCard(
+                        name = "Kasumicic",
+                        role = text.desktopAuthor,
+                        avatarResource = "kasumicic.jpg",
+                        profileUrl = KASUMICIC_PROFILE_URL,
+                        projectUrl = DESKTOP_PROJECT_URL,
+                        text = text,
+                        onOpenLink = openLink,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (linkOpenFailed) {
+                    Text(
+                        text.linkOpenFailed,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContributorCard(
+    name: String,
+    role: String,
+    avatarResource: String,
+    profileUrl: String,
+    projectUrl: String,
+    text: UiStrings,
+    onOpenLink: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Image(
+                painter = painterResource(avatarResource),
+                contentDescription = name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(76.dp).clip(CircleShape),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(name, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    role,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    TextButton(onClick = { onOpenLink(profileUrl) }) {
+                        Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text(text.githubProfile)
+                    }
+                    TextButton(onClick = { onOpenLink(projectUrl) }) {
+                        Icon(Icons.Default.Star, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text(text.githubProject)
+                    }
                 }
             }
         }

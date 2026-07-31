@@ -84,6 +84,13 @@ data class UiStrings(
     val expires: String,
     val unlimited: String,
     val noExpiration: String,
+    val contacts: String,
+    val supportWithStars: String,
+    val originalAuthor: String,
+    val desktopAuthor: String,
+    val githubProfile: String,
+    val githubProject: String,
+    val linkOpenFailed: String,
 )
 
 fun strings(language: String): UiStrings = if (language == "en") {
@@ -109,6 +116,10 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Subscription client", "Manual test", "Profile copy", "Copy profiles", "Copying…", "Profiles copied",
         "Could not write to the clipboard", "Provider", "Events",
         "Traffic", "Used", "Remaining", "Expires", "Unlimited", "No expiration",
+        "Authors and contacts",
+        "If you like the project, please support both the original Happwner and this desktop fork with a GitHub star.",
+        "Original Happwner author", "Happwner PC author", "Profile", "Project",
+        "Could not open the link in the system browser.",
     )
 } else {
     UiStrings(
@@ -133,5 +144,9 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Клиент подписки", "Ручная проверка", "Копирование профилей", "Скопировать профили", "Копируем…", "Профили скопированы",
         "Не удалось записать данные в буфер обмена", "Провайдер", "События",
         "Трафик", "Использовано", "Осталось", "Действует до", "Безлимит", "Без срока",
+        "Авторы и контакты",
+        "Если вам нравится проект, поддержите звёздами на GitHub оригинальный Happwner и этот настольный форк.",
+        "Автор оригинального Happwner", "Автор Happwner PC", "Профиль", "Проект",
+        "Не удалось открыть ссылку в системном браузере.",
     )
 }

@@ -12,7 +12,8 @@ All notable changes to Happwner PC are documented in this file.
 - a sanitized copyable diagnostic report that excludes source URLs, HWIDs, subscription IDs, and profile contents;
 - direct copying of the complete fetched, decrypted, and transformed subscription response;
 - a manual Android client compatibility table covering Exclave, Husi, Happ, NekoBox, and Incy;
-- `Subscription-Userinfo` parsing with used and remaining traffic, quota, and subscription expiry.
+- `Subscription-Userinfo` parsing with used and remaining traffic, quota, and subscription expiry;
+- an authors and contacts section with avatars and links to GitHub profiles and projects.
 
 ## 0.1.5 - 2026-07-26
 
