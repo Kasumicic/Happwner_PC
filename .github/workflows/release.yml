@@ -75,7 +75,7 @@ jobs:
 
     steps:
       - name: Install JDK and Git
-        run: pacman -Syu --noconfirm jdk21-openjdk jdk17-openjdk git
+        run: pacman -Syu --noconfirm jdk21-openjdk git
 
       - name: Check out repository
         uses: actions/checkout@v6
