@@ -13,6 +13,7 @@
   <img alt="Linux" src="https://img.shields.io/badge/Linux-supported-35d0eb?style=flat-square&logo=linux&logoColor=white">
   <img alt="Windows planned" src="https://img.shields.io/badge/Windows-planned-55515d?style=flat-square&logo=windows">
   <img alt="JDK 21" src="https://img.shields.io/badge/JDK-21-55515d?style=flat-square&logo=openjdk">
+  <a href="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml"><img alt="Статус CI" src="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
 <p align="center">
@@ -149,6 +150,8 @@ LAN-режим работает без авторизации. Любой уча
 ./gradlew test
 ./gradlew :desktop:createDistributable
 ```
+
+GitHub Actions запускает тесты в Linux и Windows при каждом push в `main` и для каждого pull request. Workflow **Release builds** собирает переносимые архивы Linux и Windows, пакеты DEB, RPM, Arch Linux и MSI. При отправке тега вида `v*` файлы публикуются автоматически; ручной запуск только сохраняет артефакты workflow, пока не включён флаг **Upload artifacts to the GitHub Release** и не указан нужный тег.
 
 Проект разделён на два модуля:
 

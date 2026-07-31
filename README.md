@@ -13,6 +13,7 @@
   <img alt="Linux" src="https://img.shields.io/badge/Linux-supported-35d0eb?style=flat-square&logo=linux&logoColor=white">
   <img alt="Windows planned" src="https://img.shields.io/badge/Windows-planned-55515d?style=flat-square&logo=windows">
   <img alt="JDK 21" src="https://img.shields.io/badge/JDK-21-55515d?style=flat-square&logo=openjdk">
+  <a href="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/Kasumicic/Happwner_PC/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
 <p align="center">
@@ -149,6 +150,8 @@ See [TODO_EN.md](TODO_EN.md) for the complete roadmap.
 ./gradlew test
 ./gradlew :desktop:createDistributable
 ```
+
+GitHub Actions runs the test suite on Linux and Windows for every push to `main` and every pull request. The **Release builds** workflow builds portable Linux and Windows archives, DEB, RPM, Arch Linux, and MSI packages. Tag pushes matching `v*` publish automatically; a manual run only stores workflow artifacts unless **Upload artifacts to the GitHub Release** is enabled and the target tag is specified.
 
 The project has two modules:
 

@@ -21,7 +21,7 @@
 ## P1 — installation and home network
 
 - [x] Add a custom icon for the application, window, tray, and installers.
-- [ ] Configure GitHub Actions for Linux and Windows tests and builds.
+- [x] Configure GitHub Actions for Linux and Windows tests and builds.
 - [ ] Publish MSI and ZIP packages for Windows, plus DEB and portable archives for Linux.
 - [x] Diagnose occupied ports and show the process name/PID when available.
 - [ ] Add instructions for Windows Firewall, ufw, and firewalld.

@@ -1,0 +1,203 @@
+name: Release builds
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing or new GitHub Release tag
+        required: true
+        default: v0.1.5-preview
+        type: string
+      publish:
+        description: Upload artifacts to the GitHub Release
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}-${{ inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    name: Linux (portable, DEB, RPM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes rpm
+
+      - name: Test and build Linux packages
+        run: make test linux deb rpm
+
+      - name: Collect Linux packages
+        run: |
+          mkdir release-linux
+          cp dist/*.tar.gz dist/*.deb dist/*.rpm release-linux/
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: release-linux/
+          if-no-files-found: error
+          retention-days: 14
+
+  arch-linux:
+    name: Arch Linux package
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Install JDK and Git
+        run: pacman -Syu --noconfirm jdk21-openjdk git
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build package as an unprivileged user
+        run: |
+          useradd --create-home builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          runuser -u builder -- env \
+            JAVA_HOME=/usr/lib/jvm/java-21-openjdk \
+            GRADLE_USER_HOME="$GITHUB_WORKSPACE/.gradle-ci" \
+            PATH="$PATH" \
+            make arch
+
+      - name: Upload Arch Linux package
+        uses: actions/upload-artifact@v4
+        with:
+          name: arch-linux-package
+          path: dist/*.pkg.tar.zst
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: Windows (MSI, portable ZIP)
+    runs-on: windows-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Test and build Windows packages
+        run: .\gradlew.bat test :desktop:createDistributable :desktop:packageMsi --stacktrace
+
+      - name: Collect Windows packages
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path gradle.properties -Pattern '^appVersion=(.+)$').Matches.Groups[1].Value
+          New-Item -ItemType Directory -Force -Path release-windows | Out-Null
+          Copy-Item desktop/build/compose/binaries/main/msi/*.msi release-windows/
+          Compress-Archive `
+            -Path 'desktop/build/compose/binaries/main/app/Happwner PC' `
+            -DestinationPath "release-windows/happwner-pc-$version-windows-x64.zip" `
+            -Force
+
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-packages
+          path: release-windows/
+          if-no-files-found: error
+          retention-days: 14
+
+  bundle:
+    name: Checksums and GitHub Release
+    needs:
+      - linux
+      - arch-linux
+      - windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Download all packages
+        uses: actions/download-artifact@v5
+        with:
+          pattern: "*-package*"
+          path: release
+          merge-multiple: true
+
+      - name: Add release notes and checksums
+        run: |
+          version="$(sed -n 's/^appVersion=//p' gradle.properties)"
+          sed "s/(RELEASE_${version}_RU.md)/(RELEASE_NOTES_RU.md)/" \
+            "docs/RELEASE_${version}.md" > release/RELEASE_NOTES.md
+          sed "s/(RELEASE_${version}.md)/(RELEASE_NOTES.md)/" \
+            "docs/RELEASE_${version}_RU.md" > release/RELEASE_NOTES_RU.md
+          cd release
+          sha256sum *.tar.gz *.deb *.rpm *.pkg.tar.zst *.msi *.zip > SHA256SUMS
+          sha256sum --check SHA256SUMS
+
+      - name: Upload complete release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: happwner-pc-release
+          path: release/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'push' || inputs.publish == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+        run: |
+          version="$(sed -n 's/^appVersion=//p' gradle.properties)"
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            prerelease_flag=()
+            release_title="Happwner PC ${version}"
+            case "$RELEASE_TAG" in
+              *preview*|*alpha*|*beta*|*rc*)
+                prerelease_flag+=(--prerelease)
+                release_title+=" Preview"
+                ;;
+            esac
+            gh release create "$RELEASE_TAG" \
+              --title "$release_title" \
+              --notes-file release/RELEASE_NOTES.md \
+              "${prerelease_flag[@]}"
+          fi
+          gh release upload "$RELEASE_TAG" release/* --clobber
