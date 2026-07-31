@@ -37,13 +37,15 @@ class AppViewModel(
         private set
     var lastSubscriptionRequests by mutableStateOf<Map<String, SubscriptionRequestRecord>>(emptyMap())
         private set
+    var subscriptionActivity by mutableStateOf<List<SubscriptionActivity>>(emptyList())
+        private set
 
     private val server = BridgeServer(
         stateProvider = { state },
         onSubscriptionResult = { id, result ->
             EventQueue.invokeLater {
                 if (!closed.get() && state.subscriptions.any { it.id == id }) {
-                    lastSubscriptionRequests = lastSubscriptionRequests + (id to result)
+                    recordActivity(id, result)
                 }
             }
         },
@@ -82,12 +84,14 @@ class AppViewModel(
     ).also {
         subscriptionChecks = subscriptionChecks - id
         lastSubscriptionRequests = lastSubscriptionRequests - id
+        subscriptionActivity = subscriptionActivity.filterNot { activity -> activity.subscriptionId == id }
     }
 
     fun checkSubscription(subscription: Subscription) {
         if (closed.get()) return
         subscriptionChecks = subscriptionChecks + (subscription.id to SubscriptionCheckState.Running)
         checkExecutor.submit {
+            val startedAt = System.nanoTime()
             val result = runCatching { subscriptionFetcher.fetch(subscription) }.fold(
                 onSuccess = {
                     val inspection = SubscriptionInspector.inspect(it.body)
@@ -112,8 +116,9 @@ class AppViewModel(
             EventQueue.invokeLater {
                 if (!closed.get() && state.subscriptions.any { it.id == subscription.id }) {
                     subscriptionChecks = subscriptionChecks + (subscription.id to result)
-                    lastSubscriptionRequests = lastSubscriptionRequests + (
-                        subscription.id to result.toRequestRecord()
+                    recordActivity(
+                        subscription.id,
+                        result.toRequestRecord(subscription, elapsedMillis(startedAt)),
                     )
                 }
             }
@@ -156,6 +161,19 @@ class AppViewModel(
         return "http://$host:${state.settings.port}"
     }
 
+    fun clearDiagnostics() {
+        subscriptionActivity = emptyList()
+    }
+
+    fun copyDiagnosticReport(): Boolean = writeSystemClipboard(
+        DiagnosticReport.create(
+            settings = state.settings,
+            serverRunning = serverRunning,
+            activities = subscriptionActivity,
+            language = state.settings.language,
+        ),
+    )
+
     private fun commit(updated: StoredState) {
         state = updated
         runCatching { repository.save(updated) }
@@ -168,20 +186,52 @@ class AppViewModel(
         checkExecutor.shutdownNow()
     }
 
-    private fun SubscriptionCheckState.toRequestRecord(): SubscriptionRequestRecord = when (this) {
+    private fun recordActivity(id: String, request: SubscriptionRequestRecord) {
+        val subscription = state.subscriptions.firstOrNull { it.id == id } ?: return
+        lastSubscriptionRequests = lastSubscriptionRequests + (id to request)
+        subscriptionActivity = (
+            listOf(SubscriptionActivity(id, subscription.name, request)) + subscriptionActivity
+        ).take(MAX_ACTIVITY_ENTRIES)
+    }
+
+    private fun SubscriptionCheckState.toRequestRecord(
+        subscription: Subscription,
+        durationMillis: Long,
+    ): SubscriptionRequestRecord = when (this) {
         SubscriptionCheckState.Running -> error("Running check has no completed request record")
         is SubscriptionCheckState.Success -> SubscriptionRequestRecord(
             completedAtMillis = System.currentTimeMillis(),
             statusCode = statusCode,
+            servedStatusCode = 200,
             sizeBytes = sizeBytes,
             profileCount = inspection.profileCount,
+            protocols = inspection.protocols,
+            durationMillis = durationMillis,
+            origin = SubscriptionRequestOrigin.MANUAL_CHECK,
+            transformations = subscription.enabledTransformations(),
         )
         is SubscriptionCheckState.NoProfiles -> SubscriptionRequestRecord(
             completedAtMillis = System.currentTimeMillis(),
             statusCode = statusCode,
+            servedStatusCode = 200,
             sizeBytes = sizeBytes,
             profileCount = 0,
+            durationMillis = durationMillis,
+            origin = SubscriptionRequestOrigin.MANUAL_CHECK,
+            transformations = subscription.enabledTransformations(),
         )
-        is SubscriptionCheckState.Error -> SubscriptionRequestRecord.failure(message)
+        is SubscriptionCheckState.Error -> SubscriptionRequestRecord.failure(
+            message = message,
+            subscription = subscription,
+            durationMillis = durationMillis,
+            origin = SubscriptionRequestOrigin.MANUAL_CHECK,
+        )
+    }
+
+    private fun elapsedMillis(startedAtNanos: Long): Long =
+        java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAtNanos)
+
+    private companion object {
+        const val MAX_ACTIVITY_ENTRIES = 100
     }
 }

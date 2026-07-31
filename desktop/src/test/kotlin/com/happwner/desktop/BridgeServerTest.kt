@@ -62,8 +62,13 @@ class BridgeServerTest {
             assertEquals("upload=1; download=2", response.headers().firstValue("Subscription-Userinfo").orElse(null))
             val recorded = assertNotNull(lastRequest)
             assertEquals(200, recorded.statusCode)
+            assertEquals(200, recorded.servedStatusCode)
             assertEquals("vless://example".toByteArray().size, recorded.sizeBytes)
             assertEquals(1, recorded.profileCount)
+            assertEquals(mapOf("vless" to 1), recorded.protocols)
+            assertEquals("127.0.0.1", recorded.clientAddress)
+            assertTrue(recorded.durationMillis != null && recorded.durationMillis >= 0)
+            assertEquals(listOf("Base64"), recorded.transformations)
             assertEquals(null, recorded.error)
         } finally {
             bridge.close()
@@ -142,6 +147,8 @@ class BridgeServerTest {
             assertEquals(502, response.statusCode())
             val recorded = assertNotNull(lastRequest)
             assertTrue(recorded.error.orEmpty().contains("HTTP 503"))
+            assertEquals(502, recorded.servedStatusCode)
+            assertEquals("127.0.0.1", recorded.clientAddress)
         } finally {
             bridge.close()
             upstream.stop(0)

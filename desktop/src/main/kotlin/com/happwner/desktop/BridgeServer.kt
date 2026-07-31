@@ -87,16 +87,32 @@ class BridgeServer(
     private fun handleSaved(exchange: HttpExchange, id: String) {
         val subscription = stateProvider().subscriptions.firstOrNull { it.id == id && it.enabled }
             ?: return sendText(exchange, 404, "Subscription Not Found")
+        val startedAt = System.nanoTime()
+        val clientAddress = exchange.remoteAddress.address?.hostAddress
         val response = try {
             fetcher.fetch(subscription)
         } catch (error: Exception) {
             onSubscriptionResult(
                 subscription.id,
-                SubscriptionRequestRecord.failure(error.message ?: "Неизвестная ошибка"),
+                SubscriptionRequestRecord.failure(
+                    message = error.message ?: "Неизвестная ошибка",
+                    subscription = subscription,
+                    servedStatusCode = error.responseStatusCode(),
+                    durationMillis = elapsedMillis(startedAt),
+                    clientAddress = clientAddress,
+                ),
             )
             throw error
         }
-        onSubscriptionResult(subscription.id, SubscriptionRequestRecord.success(response))
+        onSubscriptionResult(
+            subscription.id,
+            SubscriptionRequestRecord.success(
+                response = response,
+                subscription = subscription,
+                durationMillis = elapsedMillis(startedAt),
+                clientAddress = clientAddress,
+            ),
+        )
         sendSubscription(exchange, response)
     }
 
@@ -162,4 +178,13 @@ class BridgeServer(
             "Profile-Title",
         )
     }
+
+    private fun Throwable.responseStatusCode(): Int = when (this) {
+        is UpstreamException -> if (timeout) 504 else 502
+        is IllegalArgumentException -> 400
+        else -> 500
+    }
+
+    private fun elapsedMillis(startedAtNanos: Long): Long =
+        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAtNanos)
 }
