@@ -16,11 +16,13 @@ sealed interface SubscriptionCheckState {
         val statusCode: Int?,
         val sizeBytes: Int,
         val inspection: SubscriptionInspection,
+        val userInfo: SubscriptionUserInfo?,
     ) : SubscriptionCheckState
     data class NoProfiles(
         val statusCode: Int?,
         val sizeBytes: Int,
         val preview: String,
+        val userInfo: SubscriptionUserInfo?,
     ) : SubscriptionCheckState
     data class Error(val message: String) : SubscriptionCheckState
 }
@@ -112,12 +114,14 @@ class AppViewModel(
                             statusCode = it.statusCode,
                             sizeBytes = it.body.size,
                             inspection = inspection,
+                            userInfo = it.userInfo,
                         )
                     } else {
                         SubscriptionCheckState.NoProfiles(
                             statusCode = it.statusCode,
                             sizeBytes = it.body.size,
                             preview = inspection.preview,
+                            userInfo = it.userInfo,
                         )
                     }
                 },
@@ -266,6 +270,7 @@ class AppViewModel(
             durationMillis = durationMillis,
             origin = SubscriptionRequestOrigin.MANUAL_CHECK,
             transformations = subscription.enabledTransformations(),
+            userInfo = userInfo,
         )
         is SubscriptionCheckState.NoProfiles -> SubscriptionRequestRecord(
             completedAtMillis = System.currentTimeMillis(),
@@ -276,6 +281,7 @@ class AppViewModel(
             durationMillis = durationMillis,
             origin = SubscriptionRequestOrigin.MANUAL_CHECK,
             transformations = subscription.enabledTransformations(),
+            userInfo = userInfo,
         )
         is SubscriptionCheckState.Error -> SubscriptionRequestRecord.failure(
             message = message,

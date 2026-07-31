@@ -64,6 +64,11 @@ object DiagnosticReport {
                     add(request.protocols.entries.joinToString { "${it.key}:${it.value}" })
                 }
                 if (request.transformations.isNotEmpty()) add(request.transformations.joinToString("+"))
+                request.userInfo?.let { info ->
+                    info.usedBytes?.let { add("${if (russian) "использовано" else "used"}:$it B") }
+                    info.totalBytes?.let { add("${if (russian) "лимит" else "limit"}:$it B") }
+                    info.expireEpochSeconds?.let { add("expire:$it") }
+                }
             }.joinToString(", ")
             val safeName = DiagnosticSanitizer.errorMessage(activity.subscriptionName, null).take(MAX_NAME_LENGTH)
             lines += "${TIME_FORMATTER.format(Instant.ofEpochMilli(request.completedAtMillis))} | " +

@@ -698,6 +698,13 @@ private fun DiagnosticActivityCard(activity: SubscriptionActivity, text: UiStrin
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
+            request.userInfo?.let { userInfo ->
+                Text(
+                    formatUserInfo(userInfo, text),
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
     }
 }
@@ -759,6 +766,13 @@ private fun SubscriptionCard(
                     },
                     style = MaterialTheme.typography.bodySmall,
                 )
+                it.userInfo?.let { userInfo ->
+                    Text(
+                        formatUserInfo(userInfo, text),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
             checkState?.let {
                 Text(
@@ -869,10 +883,17 @@ private fun checkResponsePreview(state: SubscriptionCheckState): String? = when 
     else -> null
 }
 
-private fun formatBytes(bytes: Int): String = when {
-    bytes >= 1024 * 1024 -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
-    bytes >= 1024 -> "%.1f KB".format(bytes / 1024.0)
-    else -> "$bytes B"
+private fun formatBytes(bytes: Int): String = formatBytes(bytes.toLong())
+
+private fun formatBytes(bytes: Long): String {
+    val units = arrayOf("B", "KB", "MB", "GB", "TB", "PB", "EB")
+    var value = bytes.toDouble()
+    var unit = 0
+    while (value >= 1024 && unit < units.lastIndex) {
+        value /= 1024
+        unit++
+    }
+    return if (unit == 0) "$bytes ${units[unit]}" else "%.1f %s".format(value, units[unit])
 }
 
 private val requestTimeFormatter: DateTimeFormatter =
@@ -880,6 +901,30 @@ private val requestTimeFormatter: DateTimeFormatter =
 
 private fun formatRequestTime(timestampMillis: Long): String =
     requestTimeFormatter.format(Instant.ofEpochMilli(timestampMillis))
+
+private fun formatUserInfo(info: SubscriptionUserInfo, text: UiStrings): String {
+    val usedBytes = info.usedBytes
+    val totalBytes = info.totalBytes
+    val traffic = when {
+        totalBytes == 0L -> "${text.traffic}: ${text.unlimited}"
+        totalBytes != null && usedBytes != null ->
+            "${text.traffic}: ${text.used} ${formatBytes(usedBytes)} / ${formatBytes(totalBytes)}"
+        totalBytes != null -> "${text.traffic}: ${formatBytes(totalBytes)}"
+        usedBytes != null -> "${text.traffic}: ${text.used} ${formatBytes(usedBytes)}"
+        else -> null
+    }
+    val remaining = info.remainingBytes?.let { "${text.remaining}: ${formatBytes(it)}" }
+    val expiration = info.expireEpochSeconds?.let { epochSeconds ->
+        if (epochSeconds == 0L) {
+            "${text.expires}: ${text.noExpiration}"
+        } else {
+            runCatching {
+                "${text.expires}: ${requestTimeFormatter.format(Instant.ofEpochSecond(epochSeconds))}"
+            }.getOrNull()
+        }
+    }
+    return listOfNotNull(traffic, remaining, expiration).joinToString(" • ")
+}
 
 private fun requestResultText(record: SubscriptionRequestRecord, text: UiStrings): String {
     record.error?.let { return "${text.checkFailed}: $it" }

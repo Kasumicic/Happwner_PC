@@ -69,6 +69,7 @@ class BridgeServerTest {
             assertEquals("127.0.0.1", recorded.clientAddress)
             assertTrue(recorded.durationMillis != null && recorded.durationMillis >= 0)
             assertEquals(listOf("Base64"), recorded.transformations)
+            assertEquals(3L, recorded.userInfo?.usedBytes)
             assertEquals(null, recorded.error)
         } finally {
             bridge.close()

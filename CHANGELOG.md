@@ -11,7 +11,8 @@ All notable changes to Happwner PC are documented in this file.
 - an in-memory diagnostics tab with request origin, client address, response status, duration, profile/protocol counts, and applied transformations;
 - a sanitized copyable diagnostic report that excludes source URLs, HWIDs, subscription IDs, and profile contents;
 - direct copying of the complete fetched, decrypted, and transformed subscription response;
-- a manual Android client compatibility table covering Exclave, Husi, Happ, NekoBox, and Incy.
+- a manual Android client compatibility table covering Exclave, Husi, Happ, NekoBox, and Incy;
+- `Subscription-Userinfo` parsing with used and remaining traffic, quota, and subscription expiry.
 
 ## 0.1.5 - 2026-07-26
 

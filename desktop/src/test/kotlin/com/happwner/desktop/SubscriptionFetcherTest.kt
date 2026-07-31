@@ -10,7 +10,11 @@ import kotlin.test.assertFailsWith
 class SubscriptionFetcherTest {
     @Test
     fun returnsHttpStatusAndProcessedSize() {
-        val server = testServer(206, "vless://example")
+        val server = testServer(
+            status = 206,
+            response = "vless://example",
+            userInfo = "upload=1024; download=2048; total=10240; expire=1800000000",
+        )
         try {
             val result = SubscriptionFetcher().fetch(
                 Subscription(name = "Test", source = server.url("/subscription")),
@@ -18,6 +22,9 @@ class SubscriptionFetcherTest {
 
             assertEquals(206, result.statusCode)
             assertEquals("vless://example", result.body.toString(Charsets.UTF_8))
+            assertEquals(3072L, result.userInfo?.usedBytes)
+            assertEquals(7168L, result.userInfo?.remainingBytes)
+            assertEquals(1_800_000_000L, result.userInfo?.expireEpochSeconds)
         } finally {
             server.stop()
         }
@@ -39,10 +46,11 @@ class SubscriptionFetcherTest {
         }
     }
 
-    private fun testServer(status: Int, response: String): TestHttpServer {
+    private fun testServer(status: Int, response: String, userInfo: String? = null): TestHttpServer {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
             createContext("/subscription") { exchange ->
                 val body = response.toByteArray()
+                userInfo?.let { exchange.responseHeaders.set("Subscription-Userinfo", it) }
                 exchange.sendResponseHeaders(status, body.size.toLong())
                 exchange.responseBody.use { it.write(body) }
             }

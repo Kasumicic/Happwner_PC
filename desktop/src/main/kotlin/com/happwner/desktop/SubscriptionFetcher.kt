@@ -16,6 +16,7 @@ data class FetchedSubscription(
     val body: ByteArray,
     val headers: Map<String, List<String>>,
     val statusCode: Int?,
+    val userInfo: SubscriptionUserInfo? = SubscriptionUserInfoParser.parse(headers),
 )
 
 class SubscriptionFetcher {

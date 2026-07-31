@@ -19,6 +19,7 @@ data class SubscriptionRequestRecord(
     val clientAddress: String? = null,
     val origin: SubscriptionRequestOrigin = SubscriptionRequestOrigin.CLIENT,
     val transformations: List<String> = emptyList(),
+    val userInfo: SubscriptionUserInfo? = null,
     val error: String? = null,
 ) {
     companion object {
@@ -43,6 +44,7 @@ data class SubscriptionRequestRecord(
                 clientAddress = clientAddress,
                 origin = origin,
                 transformations = subscription?.enabledTransformations().orEmpty(),
+                userInfo = response.userInfo,
             )
         }
 

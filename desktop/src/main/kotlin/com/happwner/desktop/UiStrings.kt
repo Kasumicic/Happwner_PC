@@ -78,6 +78,12 @@ data class UiStrings(
     val clipboardFailed: String,
     val provider: String,
     val events: String,
+    val traffic: String,
+    val used: String,
+    val remaining: String,
+    val expires: String,
+    val unlimited: String,
+    val noExpiration: String,
 )
 
 fun strings(language: String): UiStrings = if (language == "en") {
@@ -102,6 +108,7 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "No requests recorded yet", "Client", "Duration", "Transformations", "Type",
         "Subscription client", "Manual test", "Profile copy", "Copy profiles", "Copying…", "Profiles copied",
         "Could not write to the clipboard", "Provider", "Events",
+        "Traffic", "Used", "Remaining", "Expires", "Unlimited", "No expiration",
     )
 } else {
     UiStrings(
@@ -125,5 +132,6 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Обращений пока нет", "Клиент", "Время", "Преобразования", "Тип",
         "Клиент подписки", "Ручная проверка", "Копирование профилей", "Скопировать профили", "Копируем…", "Профили скопированы",
         "Не удалось записать данные в буфер обмена", "Провайдер", "События",
+        "Трафик", "Использовано", "Осталось", "Действует до", "Безлимит", "Без срока",
     )
 }

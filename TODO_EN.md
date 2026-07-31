@@ -32,7 +32,8 @@
 ## P2 — reliability and security
 
 - [ ] Cache the latest successful subscription and serve it while the provider is temporarily unavailable.
-- [ ] Add scheduled subscription refreshes and display expiry/traffic data from `Subscription-Userinfo`.
+- [ ] Add scheduled subscription refreshes.
+- [x] Parse `Subscription-Userinfo` and display used/remaining traffic, quota, and expiration.
 - [ ] Add optional token protection for LAN links while retaining the unauthenticated mode.
 - [ ] Add settings export/import with backup support.
 - [ ] Exclude HWIDs, source URLs, and subscription contents from diagnostic logs.
