@@ -13,6 +13,8 @@ All notable changes to Happwner PC are documented in this file.
 - pretty-printed JSON and every legacy server/user entry are now converted;
 - malformed or unsupported proxy outbounds no longer cause a partially converted subscription with missing profiles;
 - current Xray Hysteria 2 outbounds are now handled by both URI and sing-box conversion.
+- Xray RAW HTTP camouflage and incompatible Xray QUIC are no longer emitted as sing-box transports;
+- fixed ECH is copied as content, while unsupported TLS constraints and mixed partial conversions are rejected safely.
 
 ## 0.1.6 - 2026-08-01
 

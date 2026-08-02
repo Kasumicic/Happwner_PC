@@ -11,7 +11,7 @@ object SingBoxConverter {
     )
 
     private val XRAY_TRANSPORTS_OK = setOf(
-        "tcp", "raw", "", "ws", "grpc", "http", "h2", "httpupgrade", "quic"
+        "tcp", "raw", "", "ws", "grpc", "http", "h2", "httpupgrade"
     )
     private val XRAY_SECURITY_OK = setOf("", "none", "tls", "reality")
     private val XRAY_PROTOCOLS_PROXY = setOf(
@@ -509,7 +509,7 @@ object SingBoxConverter {
             val o = outsRaw.optJSONObject(i) ?: continue
             val proto = o.optString("protocol", "")
             if (proto !in XRAY_PROTOCOLS_PROXY) continue
-            if (!isOutboundSupported(o)) continue
+            if (!isOutboundSupported(o)) return null
             supportedProxies.add(o)
         }
 
@@ -802,17 +802,6 @@ object SingBoxConverter {
         return ""
     }
 
-    private fun getTcpHttpRequest(stream: JSONObject): JSONObject? {
-        val net = normalizedXrayNetwork(stream)
-        if (net !in setOf("tcp", "raw", "")) return null
-        val ts = stream.optJSONObject("tcpSettings")
-            ?: stream.optJSONObject("rawSettings")
-            ?: return null
-        val hdr = ts.optJSONObject("header") ?: return null
-        if (hdr.optString("type", "none").ifEmpty { "none" } != "http") return null
-        return hdr.optJSONObject("request") ?: JSONObject()
-    }
-
     // Heuristic for "already sing-box": route present + the first outbound's type is a sing-box one
     private fun isSingbox(d: JSONObject): Boolean {
         if (!d.has("route") || !d.has("outbounds")) return false
@@ -837,18 +826,12 @@ object SingBoxConverter {
         if (net == "tcp" || net == "raw") {
             val ts = stream.optJSONObject("tcpSettings") ?: stream.optJSONObject("rawSettings")
             val hdrType = ts?.optJSONObject("header")?.optString("type", "none")?.ifEmpty { "none" }
-            if (hdrType != null && hdrType != "none" && hdrType != "http") return false
-        }
-        if (net == "quic") {
-            val qs = stream.optJSONObject("quicSettings") ?: JSONObject()
-            val qsec = qs.optString("security", "none").lowercase().ifEmpty { "none" }
-            if (qsec != "none" && qsec != "") return false
-            val qhdr = (qs.optJSONObject("header")?.optString("type", "none")
-                ?: "none").lowercase().ifEmpty { "none" }
-            if (qhdr != "none" && qhdr != "") return false
+            // Xray RAW HTTP packet camouflage is not sing-box's V2Ray HTTP transport.
+            if (hdrType != null && hdrType != "none") return false
         }
         val sec = stream.optString("security", "")
         if (sec !in XRAY_SECURITY_OK) return false
+        if (!isTlsSemanticallySupported(stream)) return false
         if (proto == "vless") {
             val user = firstUser(o)
             val flowRaw = user?.optString("flow", "") ?: ""
@@ -871,6 +854,51 @@ object SingBoxConverter {
             if (plugin.isNotEmpty() && plugin !in SS_PLUGINS_OK) return false
         }
         return true
+    }
+
+    private fun hasMeaningfulValue(value: Any?): Boolean = when (value) {
+        null, JSONObject.NULL -> false
+        is String -> value.isNotBlank()
+        is JSONArray -> (0 until value.length()).any { hasMeaningfulValue(value.opt(it)) }
+        is JSONObject -> value.length() > 0
+        else -> true
+    }
+
+    private fun xrayEchValue(tlsSettings: JSONObject): Any? {
+        val current = tlsSettings.opt("echConfigList")
+        return if (hasMeaningfulValue(current)) current else tlsSettings.opt("ech")
+    }
+
+    private fun isFixedEchConfig(value: Any?): Boolean = when (value) {
+        null, JSONObject.NULL -> true
+        is String -> value.isBlank() || !value.contains("://")
+        is JSONArray -> (0 until value.length()).all {
+            val line = value.opt(it)
+            line is String && line.isNotBlank() && !line.contains("://")
+        }
+        else -> false
+    }
+
+    private fun isTlsSemanticallySupported(stream: JSONObject): Boolean {
+        return when (stream.optString("security", "")) {
+            "reality" -> {
+                val reality = stream.optJSONObject("realitySettings") ?: JSONObject()
+                val fingerprint = reality.optString("fingerprint", "")
+                (fingerprint.isEmpty() || fingerprint in UTLS_FP) &&
+                    !hasMeaningfulValue(reality.opt("mldsa65Verify"))
+            }
+            "tls" -> {
+                val tls = stream.optJSONObject("tlsSettings") ?: JSONObject()
+                val fingerprint = tls.optString("fingerprint", "")
+                val fingerprintSupported = fingerprint.isEmpty() || fingerprint in UTLS_FP
+                fingerprintSupported &&
+                    !tls.optBoolean("disableSystemRoot", false) &&
+                    !hasMeaningfulValue(tls.opt("pinnedPeerCertSha256")) &&
+                    !hasMeaningfulValue(tls.opt("verifyPeerCertByName")) &&
+                    isFixedEchConfig(xrayEchValue(tls))
+            }
+            else -> true
+        }
     }
 
     private fun firstUser(o: JSONObject): JSONObject? {
@@ -1124,72 +1152,22 @@ object SingBoxConverter {
                 }
             }
         }
-        var ech: Any? = ts.opt("echConfigList")
-        if (ech == null || ech === JSONObject.NULL ||
-            (ech is JSONArray && ech.length() == 0) ||
-            (ech is String && ech.isEmpty())) {
-            ech = ts.opt("ech")
-        }
-        if (ech != null && ech !== JSONObject.NULL &&
-            !(ech is JSONArray && ech.length() == 0) &&
-            !(ech is String && ech.isEmpty())) {
+        val ech = xrayEchValue(ts)
+        if (hasMeaningfulValue(ech)) {
             val echObj = JSONObject()
             echObj.put("enabled", true)
             when (ech) {
                 is JSONArray -> echObj.put("config", ech)
-                is String -> echObj.put("config_path", ech)
+                is String -> echObj.put("config", JSONArray().put(ech))
             }
             tls.put("ech", echObj)
         }
         return tls
     }
 
-    // streamSettings to the transport block (ws/grpc/http/httpupgrade/quic/tcp-http)
+    // streamSettings to the transport block (ws/grpc/http/httpupgrade)
     private fun convTransport(stream: JSONObject): JSONObject? {
         val net = normalizedXrayNetwork(stream)
-
-        // tcp + http header -> http transport
-        if (net == "tcp") {
-            val req = getTcpHttpRequest(stream) ?: return null
-            val tr = JSONObject()
-            tr.put("type", "http")
-            val pathRaw = req.opt("path")
-            when (pathRaw) {
-                is JSONArray -> if (pathRaw.length() > 0) tr.put("path", pathRaw.opt(0))
-                is String -> if (pathRaw.isNotEmpty()) tr.put("path", pathRaw)
-            }
-            val method = req.optString("method", "")
-            if (method.isNotEmpty()) tr.put("method", method)
-            val headersIn = req.optJSONObject("headers")
-            val workingHeaders = if (headersIn != null) {
-                val copy = JSONObject()
-                val keys = headersIn.keys()
-                while (keys.hasNext()) {
-                    val k = keys.next()
-                    copy.put(k, headersIn.opt(k))
-                }
-                copy
-            } else null
-            var hostVals: Any? = null
-            if (workingHeaders != null) {
-                if (workingHeaders.has("Host")) {
-                    hostVals = workingHeaders.opt("Host"); workingHeaders.remove("Host")
-                } else if (workingHeaders.has("host")) {
-                    hostVals = workingHeaders.opt("host"); workingHeaders.remove("host")
-                }
-            }
-            if (hostVals != null && hostVals !== JSONObject.NULL) {
-                if (hostVals is JSONArray) {
-                    tr.put("host", hostVals)
-                } else {
-                    tr.put("host", JSONArray().put(hostVals.toString()))
-                }
-            }
-            if (workingHeaders != null && workingHeaders.length() > 0) {
-                tr.put("headers", normalizeHeadersV2ray(workingHeaders, singleValue = false))
-            }
-            return tr
-        }
 
         // WebSocket: path, headers, early-data
         if (net == "ws") {
@@ -1295,12 +1273,6 @@ object SingBoxConverter {
             if (hostTop.isEmpty() && !hostFromHeaders.isNullOrEmpty()) hostTop = hostFromHeaders
             if (hostTop.isNotEmpty()) tr.put("host", hostTop)
             if (headers.length() > 0) tr.put("headers", headers)
-            return tr
-        }
-
-        if (net == "quic") {
-            val tr = JSONObject()
-            tr.put("type", "quic")
             return tr
         }
 
@@ -2090,7 +2062,8 @@ object SingBoxConverter {
         if (outsRaw != null) {
             for (i in 0 until outsRaw.length()) {
                 val o = outsRaw.optJSONObject(i) ?: continue
-                if (o.optString("protocol", "") in XRAY_PROTOCOLS_PROXY && isOutboundSupported(o)) {
+                if (o.optString("protocol", "") in XRAY_PROTOCOLS_PROXY) {
+                    if (!isOutboundSupported(o)) return null
                     xrayProxies.add(o)
                 }
             }

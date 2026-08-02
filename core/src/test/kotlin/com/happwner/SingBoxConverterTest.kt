@@ -142,6 +142,62 @@ class SingBoxConverterTest {
         assertIs<SingBoxConverter.OutboundsResult.Unsupported>(SingBoxConverter.convertToOutbounds(config))
     }
 
+    @Test
+    fun rejectsWireIncompatibleXrayTransportsWithoutPartialConversion() {
+        val supported = JSONObject(
+            """{
+              "protocol":"vless",
+              "tag":"safe",
+              "settings":{"address":"safe.example.com","port":443,"id":"11111111-1111-4111-8111-111111111111"}
+            }""",
+        )
+        val rawHttp = JSONObject(
+            """{
+              "protocol":"vless",
+              "tag":"raw-http",
+              "settings":{"address":"raw.example.com","port":443,"id":"22222222-2222-4222-8222-222222222222"},
+              "streamSettings":{"network":"raw","rawSettings":{"header":{"type":"http","request":{"path":["/"]}}}}
+            }""",
+        )
+        val quic = JSONObject(
+            """{
+              "protocol":"vmess",
+              "settings":{"address":"quic.example.com","port":443,"id":"33333333-3333-4333-8333-333333333333"},
+              "streamSettings":{"network":"quic","quicSettings":{"security":"none"}}
+            }""",
+        )
+
+        val mixed = JSONObject().put("outbounds", org.json.JSONArray().put(supported).put(rawHttp)).toString()
+        assertIs<SingBoxConverter.Result.Unsupported>(SingBoxConverter.convert(mixed))
+        assertIs<SingBoxConverter.OutboundsResult.Unsupported>(SingBoxConverter.convertToOutbounds(mixed))
+        assertIs<SingBoxConverter.Result.Unsupported>(SingBoxConverter.convert(xrayConfig(quic.toString())))
+    }
+
+    @Test
+    fun mapsFixedEchContentAndRejectsUnmappableTlsSecurityConstraints() {
+        fun tlsConfig(extra: String): String = xrayConfig(
+            """{
+              "protocol":"vless",
+              "settings":{"address":"tls.example.com","port":443,"id":"44444444-4444-4444-8444-444444444444"},
+              "streamSettings":{"security":"tls","tlsSettings":{$extra}}
+            }""",
+        )
+
+        val fixed = assertIs<SingBoxConverter.Result.Ok>(
+            SingBoxConverter.convert(tlsConfig("\"echConfigList\":\"BASE64-ECH-CONFIG\"")),
+        )
+        val ech = proxyOutbound(fixed.config, "vless").getJSONObject("tls").getJSONObject("ech")
+        assertEquals("BASE64-ECH-CONFIG", ech.getJSONArray("config").getString(0))
+        assertTrue(!ech.has("config_path"))
+
+        assertIs<SingBoxConverter.Result.Unsupported>(
+            SingBoxConverter.convert(tlsConfig("\"echConfigList\":\"https://1.1.1.1/dns-query\"")),
+        )
+        assertIs<SingBoxConverter.Result.Unsupported>(
+            SingBoxConverter.convert(tlsConfig("\"pinnedPeerCertSha256\":\"deadbeef\"")),
+        )
+    }
+
     private fun xrayConfig(outbound: String): String = JSONObject()
         .put("outbounds", org.json.JSONArray().put(JSONObject(outbound)))
         .toString()

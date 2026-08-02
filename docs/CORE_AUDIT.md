@@ -2,7 +2,9 @@
 
 [Русская версия](CORE_AUDIT_RU.md)
 
-Audit date: 2026-07-26
+Android port audit date: 2026-07-26
+
+Latest Xray and sing-box documentation review: 2026-08-02
 
 Reference: Android Happwner 1.3, local repository `../Happwner`, commit `e9412c8`.
 
@@ -16,7 +18,15 @@ Reference: Android Happwner 1.3, local repository `../Happwner`, commit `e9412c8
 | v2RayTun encrypted links | Equivalent | Source differs only in Android/JVM compatibility imports. All three bundled RSA keys are exercised by automated tests. |
 | `happ://add`, v2RayTun imports and INCY links | Equivalent or extended | The original parsing code is retained. `SourceResolver` additionally unwraps nested links for a desktop subscription source and can serve an embedded static profile. |
 | Base64 and JSON-to-URI conversion | Equivalent or extended | Conversion order matches Android: Base64, Xray filtering/conversion, JSON-to-URI. The PC fork additionally preserves VLESS TLS, Reality and transport fields that the Android 1.3 converter can drop. |
-| Xray-to-sing-box | Equivalent | `SingBoxConverter.kt` is unchanged from Android 1.3. |
+| Xray-to-sing-box | Extended and hardened | Current flat Xray schemas are supported after the port, and conversions without equivalent sing-box wire semantics are rejected safely. |
+
+## Xray and sing-box conformance
+
+The converter is additionally checked against the official [Xray transport](https://xtls.github.io/en/config/transport.html), [Xray TLS](https://xtls.github.io/en/config/transports/tls.html), [sing-box V2Ray Transport](https://sing-box.sagernet.org/configuration/shared/v2ray-transport/), and [sing-box TLS](https://sing-box.sagernet.org/configuration/shared/tls/) specifications.
+
+The conversion rule is to avoid producing a configuration that looks valid while changing the wire protocol or weakening a requested TLS check. Xray RAW HTTP camouflage and Xray QUIC are therefore not substituted with similarly named but incompatible sing-box transports. A fixed `echConfigList` is copied as `ech.config` content, not as a file path. DNS-based Xray ECH, Xray certificate pinning, and other TLS constraints without exact equivalents produce an unsupported result so the original profile can be preserved instead of being corrupted silently.
+
+If one input contains both supported and unsupported proxy outbounds, full conversion is rejected as a unit as well: individual profiles no longer disappear from the result unnoticed.
 
 ## Bridge behavior
 
