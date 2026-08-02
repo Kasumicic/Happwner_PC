@@ -8,7 +8,11 @@ import java.net.IDN
 import java.net.URLEncoder
 
 object LinkConverter {
-    data class ConversionStats(val text: String, val xraySkipped: Int)
+    data class ConversionStats(
+        val text: String,
+        val xraySkipped: Int,
+        val uriPreserved: Int = 0,
+    )
 
     fun convert(
         input: String,
@@ -41,7 +45,8 @@ object LinkConverter {
                 } else {
                     ConversionStats(
                         encodeBase64Like(inner.text, b64),
-                        inner.xraySkipped
+                        inner.xraySkipped,
+                        inner.uriPreserved,
                     )
                 }
             }
@@ -57,7 +62,11 @@ object LinkConverter {
         if (xrayToSb && jsonToUri) {
             val filtered = preFilterUnsupportedXray(input)
             val inner = convertWithStats(filtered.text, jsonToUri = true, tryBase64 = tryBase64, xrayToSb = false)
-            return ConversionStats(inner.text, inner.xraySkipped + filtered.skipped)
+            return ConversionStats(
+                inner.text,
+                inner.xraySkipped + filtered.skipped,
+                inner.uriPreserved,
+            )
         }
 
         // Whole body is a single xray config -> sing-box
@@ -78,11 +87,12 @@ object LinkConverter {
         // Walking it line by line would leave multiline provider responses unchanged.
         if (jsonToUri && (trimmed.startsWith("{") || trimmed.startsWith("[")) && isWholeJsonValue(trimmed)) {
             val converted = convertJsonValueToLinks(trimmed)
-            if (converted != null) return ConversionStats(converted, 0)
+            if (converted != null) return ConversionStats(converted.text, 0, converted.preserved)
         }
 
         val res = StringBuilder()
         var skipped = 0
+        var uriPreserved = 0
         // Otherwise walk line by line
         input.lines().forEach { line ->
             val t = line.trim()
@@ -100,6 +110,7 @@ object LinkConverter {
                     }
                     res.append(output).append("\n")
                     skipped += inner.xraySkipped
+                    uriPreserved += inner.uriPreserved
                     return@forEach
                 }
             }
@@ -135,7 +146,9 @@ object LinkConverter {
                         for (i in 0 until arr.length()) {
                             val obj = arr.optJSONObject(i)
                             val piece: String? = if (obj != null) {
-                                processJson(obj) ?: obj.toString()
+                                val conversion = processJsonWithStats(obj)
+                                uriPreserved += conversion.preserved
+                                conversion.text ?: obj.toString()
                             } else {
                                 val raw = arr.opt(i)
                                 if (raw == null || raw === JSONObject.NULL) null
@@ -145,8 +158,9 @@ object LinkConverter {
                         }
                     } else {
                         val obj = JSONObject(t)
-                        val converted = processJson(obj)
-                        if (converted != null) res.append(converted).append("\n")
+                        val converted = processJsonWithStats(obj)
+                        uriPreserved += converted.preserved
+                        if (converted.text != null) res.append(converted.text).append("\n")
                         else res.append(t).append("\n")
                     }
                     return@forEach
@@ -155,26 +169,33 @@ object LinkConverter {
 
             res.append(t).append("\n")
         }
-        return ConversionStats(res.toString().trim(), skipped)
+        return ConversionStats(res.toString().trim(), skipped, uriPreserved)
     }
 
-    private fun convertJsonValueToLinks(text: String): String? = try {
+    private data class JsonLinksResult(val text: String, val preserved: Int)
+
+    private fun convertJsonValueToLinks(text: String): JsonLinksResult? = try {
         if (text.startsWith("[")) {
             val array = JSONArray(text)
-            buildList {
+            var preserved = 0
+            val result = buildList {
                 for (index in 0 until array.length()) {
                     val item = array.optJSONObject(index)
                     if (item != null) {
-                        add(processJson(item) ?: item.toString())
+                        val conversion = processJsonWithStats(item)
+                        preserved += conversion.preserved
+                        add(conversion.text ?: item.toString())
                     } else {
                         val raw = array.opt(index)
                         if (raw != null && raw !== JSONObject.NULL && raw.toString().isNotBlank()) add(raw.toString())
                     }
                 }
             }.joinToString("\n").takeIf(String::isNotBlank)
+            result?.let { JsonLinksResult(it, preserved) }
         } else {
             val obj = JSONObject(text)
-            processJson(obj) ?: text
+            val conversion = processJsonWithStats(obj)
+            JsonLinksResult(conversion.text ?: text, conversion.preserved)
         }
     } catch (_: Exception) {
         null
@@ -399,7 +420,9 @@ object LinkConverter {
         }
 
         if (!hadXray) return null
-        if (configs.isEmpty() && passthroughLines.isEmpty()) return null
+        if (configs.isEmpty() && passthroughLines.isEmpty()) {
+            return ConversionStats("", skipped)
+        }
 
         val builder = StringBuilder()
         if (configs.isNotEmpty()) {
@@ -508,6 +531,57 @@ object LinkConverter {
             b64.hadTrailingNewline -> "$body\n"
             else -> body
         }
+    }
+
+    private data class JsonObjectConversion(val text: String?, val preserved: Int)
+
+    private fun processJsonWithStats(root: JSONObject): JsonObjectConversion {
+        val expectedProfiles = expectedProxyProfiles(root)
+        val converted = processJson(root)
+        val convertedProfiles = converted
+            ?.lineSequence()
+            ?.count(String::isNotBlank)
+            ?: 0
+        val missingProfiles = (expectedProfiles - convertedProfiles).coerceAtLeast(0)
+        return if (missingProfiles > 0) {
+            JsonObjectConversion(null, expectedProfiles)
+        } else {
+            JsonObjectConversion(converted, 0)
+        }
+    }
+
+    private fun expectedProxyProfiles(root: JSONObject): Int {
+        val outbounds = root.optJSONArray("outbounds")
+        if (outbounds != null) {
+            var total = 0
+            for (index in 0 until outbounds.length()) {
+                outbounds.optJSONObject(index)?.let { total += expectedOutboundProfiles(it) }
+            }
+            return total
+        }
+        return expectedOutboundProfiles(root)
+    }
+
+    private fun expectedOutboundProfiles(outbound: JSONObject): Int {
+        val protocol = outbound.optString("protocol", outbound.optString("type")).lowercase()
+        if (protocol !in PROXY_PROTOCOLS && !isShadowsocks(outbound)) return 0
+
+        if (protocol == "vless" || protocol == "vmess") {
+            val vnext = outbound.optJSONObject("settings")?.optJSONArray("vnext")
+            if (vnext != null) {
+                var users = 0
+                for (serverIndex in 0 until vnext.length()) {
+                    users += vnext.optJSONObject(serverIndex)?.optJSONArray("users")?.length() ?: 0
+                }
+                return users.coerceAtLeast(1)
+            }
+        }
+
+        if (protocol in setOf("shadowsocks", "trojan", "hysteria", "hysteria2")) {
+            val servers = outbound.optJSONObject("settings")?.optJSONArray("servers")
+            if (servers != null) return servers.length().coerceAtLeast(1)
+        }
+        return 1
     }
 
     // JSON outbound to a link (vless/vmess/ss/trojan/hysteria2/tuic)

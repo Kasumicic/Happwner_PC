@@ -17,20 +17,32 @@ sealed interface SubscriptionCheckState {
         val sizeBytes: Int,
         val inspection: SubscriptionInspection,
         val userInfo: SubscriptionUserInfo?,
+        val xraySkipped: Int = 0,
+        val uriPreserved: Int = 0,
     ) : SubscriptionCheckState
     data class NoProfiles(
         val statusCode: Int?,
         val sizeBytes: Int,
         val preview: String,
         val userInfo: SubscriptionUserInfo?,
+        val xraySkipped: Int = 0,
+        val uriPreserved: Int = 0,
     ) : SubscriptionCheckState
     data class Error(val message: String) : SubscriptionCheckState
 }
 
 sealed interface ProfileCopyState {
     data object Running : ProfileCopyState
-    data class Success(val profileCount: Int, val sizeBytes: Int) : ProfileCopyState
-    data object NoProfiles : ProfileCopyState
+    data class Success(
+        val profileCount: Int,
+        val sizeBytes: Int,
+        val xraySkipped: Int = 0,
+        val uriPreserved: Int = 0,
+    ) : ProfileCopyState
+    data class NoProfiles(
+        val xraySkipped: Int = 0,
+        val uriPreserved: Int = 0,
+    ) : ProfileCopyState
     data object ClipboardError : ProfileCopyState
     data class Error(val message: String) : ProfileCopyState
 }
@@ -115,6 +127,8 @@ class AppViewModel(
                             sizeBytes = it.body.size,
                             inspection = inspection,
                             userInfo = it.userInfo,
+                            xraySkipped = it.xraySkipped,
+                            uriPreserved = it.uriPreserved,
                         )
                     } else {
                         SubscriptionCheckState.NoProfiles(
@@ -122,6 +136,8 @@ class AppViewModel(
                             sizeBytes = it.body.size,
                             preview = inspection.preview,
                             userInfo = it.userInfo,
+                            xraySkipped = it.xraySkipped,
+                            uriPreserved = it.uriPreserved,
                         )
                     }
                 },
@@ -271,6 +287,8 @@ class AppViewModel(
             origin = SubscriptionRequestOrigin.MANUAL_CHECK,
             transformations = subscription.enabledTransformations(),
             userInfo = userInfo,
+            xraySkipped = xraySkipped,
+            uriPreserved = uriPreserved,
         )
         is SubscriptionCheckState.NoProfiles -> SubscriptionRequestRecord(
             completedAtMillis = System.currentTimeMillis(),
@@ -282,6 +300,8 @@ class AppViewModel(
             origin = SubscriptionRequestOrigin.MANUAL_CHECK,
             transformations = subscription.enabledTransformations(),
             userInfo = userInfo,
+            xraySkipped = xraySkipped,
+            uriPreserved = uriPreserved,
         )
         is SubscriptionCheckState.Error -> SubscriptionRequestRecord.failure(
             message = message,

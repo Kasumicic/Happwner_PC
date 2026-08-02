@@ -878,6 +878,13 @@ private fun SubscriptionCard(
                     },
                     style = MaterialTheme.typography.bodySmall,
                 )
+                conversionWarningText(it.xraySkipped, it.uriPreserved, text)?.let { warning ->
+                    Text(
+                        warning,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 it.userInfo?.let { userInfo ->
                     Text(
                         formatUserInfo(userInfo, text),
@@ -896,6 +903,13 @@ private fun SubscriptionCard(
                     },
                     style = MaterialTheme.typography.bodySmall,
                 )
+                checkConversionWarningText(it, text)?.let { warning ->
+                    Text(
+                        warning,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 checkResponsePreview(it)?.takeIf(String::isNotBlank)?.let { preview ->
                     Text(
                         "${text.response}: $preview",
@@ -915,6 +929,11 @@ private fun SubscriptionCard(
                         copyState is ProfileCopyState.NoProfiles
                     ) {
                         MaterialTheme.colorScheme.error
+                    } else if (
+                        copyState is ProfileCopyState.Success &&
+                        (copyState.xraySkipped > 0 || copyState.uriPreserved > 0)
+                    ) {
+                        MaterialTheme.colorScheme.tertiary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
@@ -955,9 +974,14 @@ private fun SubscriptionCard(
 
 private fun profileCopyResultText(state: ProfileCopyState, text: UiStrings): String = when (state) {
     ProfileCopyState.Running -> text.copyingProfiles
-    is ProfileCopyState.Success ->
-        "${text.profilesCopied}: ${state.profileCount} • ${formatBytes(state.sizeBytes)}"
-    ProfileCopyState.NoProfiles -> text.noProfiles
+    is ProfileCopyState.Success -> listOfNotNull(
+        "${text.profilesCopied}: ${state.profileCount} • ${formatBytes(state.sizeBytes)}",
+        conversionWarningText(state.xraySkipped, state.uriPreserved, text),
+    ).joinToString(" • ")
+    is ProfileCopyState.NoProfiles -> listOfNotNull(
+        text.noProfiles,
+        conversionWarningText(state.xraySkipped, state.uriPreserved, text),
+    ).joinToString(" • ")
     ProfileCopyState.ClipboardError -> text.clipboardFailed
     is ProfileCopyState.Error -> "${text.checkFailed}: ${state.message}"
 }
@@ -972,7 +996,8 @@ private fun diagnosticResultText(record: SubscriptionRequestRecord, text: UiStri
     val profiles = record.profileCount?.let { "${text.profiles}: $it" }
     val protocols = record.protocols.takeIf { it.isNotEmpty() }
         ?.entries?.joinToString { "${it.key}: ${it.value}" }
-    return listOfNotNull(servedStatus, providerStatus, size, profiles, protocols).joinToString(" • ")
+    val warning = conversionWarningText(record.xraySkipped, record.uriPreserved, text)
+    return listOfNotNull(servedStatus, providerStatus, size, profiles, protocols, warning).joinToString(" • ")
 }
 
 private fun checkResultText(state: SubscriptionCheckState, text: UiStrings): String = when (state) {
@@ -994,6 +1019,18 @@ private fun checkResponsePreview(state: SubscriptionCheckState): String? = when 
     is SubscriptionCheckState.NoProfiles -> state.preview
     else -> null
 }
+
+private fun checkConversionWarningText(state: SubscriptionCheckState, text: UiStrings): String? = when (state) {
+    is SubscriptionCheckState.Success -> conversionWarningText(state.xraySkipped, state.uriPreserved, text)
+    is SubscriptionCheckState.NoProfiles -> conversionWarningText(state.xraySkipped, state.uriPreserved, text)
+    else -> null
+}
+
+private fun conversionWarningText(xraySkipped: Int, uriPreserved: Int, text: UiStrings): String? =
+    buildList {
+        if (xraySkipped > 0) add("⚠ ${text.xrayProfilesSkipped}: $xraySkipped")
+        if (uriPreserved > 0) add("⚠ ${text.jsonProfilesPreserved}: $uriPreserved")
+    }.joinToString(" • ").takeIf(String::isNotEmpty)
 
 private fun formatBytes(bytes: Int): String = formatBytes(bytes.toLong())
 

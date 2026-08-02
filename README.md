@@ -53,7 +53,7 @@ This is a non-commercial desktop fork of the Android application [Happwner](http
 - **Happ and third-party formats.** HTTP(S), `happ://add`, `happ://crypt`–`crypt5`, `v2raytun://crypt`, `v2raytun://import`, `incy://add`, and `incy://import` are supported.
 - **Provider compatibility.** Requests carry `x-hwid` and a configurable `User-Agent`; responses with `Encrypt-Tag` are decrypted.
 - **Profile conversion.** Optional Base64, JSON-to-URI, and Xray-to-sing-box transformations are available; Base64 decoding is enabled by default.
-- **Subscription inspection.** Checks report HTTP status, response size, discovered profiles and protocols, or a clear processing error.
+- **Subscription inspection.** Checks report HTTP status, response size, discovered profiles and protocols, conversion warnings, or a clear processing error.
 - **Traffic and expiry.** `Subscription-Userinfo` metadata shows used and remaining traffic, the quota, and subscription expiration date.
 - **Direct profile copying.** Fetch, decrypt, transform, and copy the complete processed subscription without importing its URL.
 - **Safe diagnostics.** An in-memory activity log shows clients, timings, response details, and transformations; copied reports mask addresses and omit subscription secrets.

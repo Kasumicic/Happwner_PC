@@ -17,6 +17,8 @@ data class FetchedSubscription(
     val headers: Map<String, List<String>>,
     val statusCode: Int?,
     val userInfo: SubscriptionUserInfo? = SubscriptionUserInfoParser.parse(headers),
+    val xraySkipped: Int = 0,
+    val uriPreserved: Int = 0,
 )
 
 class SubscriptionFetcher(
@@ -34,13 +36,19 @@ class SubscriptionFetcher(
     fun fetch(subscription: Subscription): FetchedSubscription {
         val resolution = SourceResolver.resolve(subscription.source)
         if (resolution is SourceResolver.Result.Static) {
-            val transformed = SubscriptionProcessor.transform(
+            val transformed = SubscriptionProcessor.transformWithStats(
                 "",
                 resolution.content,
                 emptyMap(),
                 subscription,
             )
-            return FetchedSubscription(transformed.toByteArray(Charsets.UTF_8), emptyMap(), null)
+            return FetchedSubscription(
+                body = transformed.text.toByteArray(Charsets.UTF_8),
+                headers = emptyMap(),
+                statusCode = null,
+                xraySkipped = transformed.xraySkipped,
+                uriPreserved = transformed.uriPreserved,
+            )
         }
         val url = when (resolution) {
             is SourceResolver.Result.Success -> resolution.url
@@ -78,7 +86,7 @@ class SubscriptionFetcher(
             }
         }
         val transformed = try {
-            SubscriptionProcessor.transform(
+            SubscriptionProcessor.transformWithStats(
                 url,
                 output.toString(Charsets.UTF_8),
                 response.headers().map(),
@@ -88,9 +96,11 @@ class SubscriptionFetcher(
             throw UpstreamException(error.message ?: "Ошибка обработки подписки")
         }
         return FetchedSubscription(
-            body = transformed.toByteArray(Charsets.UTF_8),
+            body = transformed.text.toByteArray(Charsets.UTF_8),
             headers = response.headers().map(),
             statusCode = response.statusCode(),
+            xraySkipped = transformed.xraySkipped,
+            uriPreserved = transformed.uriPreserved,
         )
     }
 

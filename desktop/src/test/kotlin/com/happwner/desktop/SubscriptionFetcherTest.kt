@@ -32,6 +32,28 @@ class SubscriptionFetcherTest {
     }
 
     @Test
+    fun exposesJsonToUriWarningsToTheApplication() {
+        val json = """{"protocol":"wireguard","settings":{"secretKey":"keep-me"}}"""
+        val server = testServer(200, json)
+        try {
+            val result = SubscriptionFetcher().fetch(
+                Subscription(
+                    name = "Test",
+                    source = server.url("/subscription"),
+                    decodeBase64 = false,
+                    jsonToUri = true,
+                ),
+            )
+
+            assertEquals(json, result.body.toString(Charsets.UTF_8))
+            assertEquals(1, result.uriPreserved)
+            assertEquals(0, result.xraySkipped)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun reportsProviderHttpError() {
         val server = testServer(503, "try later")
         try {

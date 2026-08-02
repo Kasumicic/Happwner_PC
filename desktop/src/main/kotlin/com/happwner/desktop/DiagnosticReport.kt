@@ -64,6 +64,12 @@ object DiagnosticReport {
                     add(request.protocols.entries.joinToString { "${it.key}:${it.value}" })
                 }
                 if (request.transformations.isNotEmpty()) add(request.transformations.joinToString("+"))
+                if (request.xraySkipped > 0) {
+                    add("${if (russian) "Xray пропущено" else "Xray skipped"}:${request.xraySkipped}")
+                }
+                if (request.uriPreserved > 0) {
+                    add("${if (russian) "JSON сохранено" else "JSON preserved"}:${request.uriPreserved}")
+                }
                 request.userInfo?.let { info ->
                     info.usedBytes?.let { add("${if (russian) "использовано" else "used"}:$it B") }
                     info.totalBytes?.let { add("${if (russian) "лимит" else "limit"}:$it B") }

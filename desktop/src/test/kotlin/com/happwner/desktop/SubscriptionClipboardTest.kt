@@ -27,13 +27,19 @@ class SubscriptionClipboardTest {
         var writes = 0
 
         val result = SubscriptionClipboard.copy(
-            FetchedSubscription("provider maintenance".toByteArray(), emptyMap(), 200),
+            FetchedSubscription(
+                body = "provider maintenance".toByteArray(),
+                headers = emptyMap(),
+                statusCode = 200,
+                uriPreserved = 1,
+            ),
         ) {
             writes++
             true
         }
 
-        assertIs<ProfileCopyState.NoProfiles>(result)
+        val noProfiles = assertIs<ProfileCopyState.NoProfiles>(result)
+        assertEquals(1, noProfiles.uriPreserved)
         assertEquals(0, writes)
     }
 
@@ -44,5 +50,22 @@ class SubscriptionClipboardTest {
         ) { false }
 
         assertIs<ProfileCopyState.ClipboardError>(result)
+    }
+
+    @Test
+    fun keepsConversionWarningsAfterCopyingProfiles() {
+        val result = SubscriptionClipboard.copy(
+            FetchedSubscription(
+                body = "vless://profile".toByteArray(),
+                headers = emptyMap(),
+                statusCode = 200,
+                xraySkipped = 2,
+                uriPreserved = 1,
+            ),
+        ) { true }
+
+        val success = assertIs<ProfileCopyState.Success>(result)
+        assertEquals(2, success.xraySkipped)
+        assertEquals(1, success.uriPreserved)
     }
 }

@@ -20,6 +20,8 @@ data class SubscriptionRequestRecord(
     val origin: SubscriptionRequestOrigin = SubscriptionRequestOrigin.CLIENT,
     val transformations: List<String> = emptyList(),
     val userInfo: SubscriptionUserInfo? = null,
+    val xraySkipped: Int = 0,
+    val uriPreserved: Int = 0,
     val error: String? = null,
 ) {
     companion object {
@@ -45,6 +47,8 @@ data class SubscriptionRequestRecord(
                 origin = origin,
                 transformations = subscription?.enabledTransformations().orEmpty(),
                 userInfo = response.userInfo,
+                xraySkipped = response.xraySkipped,
+                uriPreserved = response.uriPreserved,
             )
         }
 

@@ -48,6 +48,8 @@ class DiagnosticReportTest {
             durationMillis = 15,
             clientAddress = "127.0.0.1",
             transformations = listOf("Base64"),
+            xraySkipped = 2,
+            uriPreserved = 1,
         )
 
         val report = DiagnosticReport.create(
@@ -61,6 +63,8 @@ class DiagnosticReportTest {
         assertTrue("профили: 2" in report)
         assertTrue("vless:2" in report)
         assertTrue("loopback" in report)
+        assertTrue("Xray пропущено:2" in report)
+        assertTrue("JSON сохранено:1" in report)
         assertFalse("private-id" in report)
     }
 }

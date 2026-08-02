@@ -91,6 +91,8 @@ data class UiStrings(
     val githubProfile: String,
     val githubProject: String,
     val linkOpenFailed: String,
+    val xrayProfilesSkipped: String,
+    val jsonProfilesPreserved: String,
 )
 
 fun strings(language: String): UiStrings = if (language == "en") {
@@ -120,6 +122,7 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "If you like the project, please support both the original Happwner and this desktop fork with a GitHub star.",
         "Original Happwner author", "Happwner PC author", "Profile", "Project",
         "Could not open the link in the system browser.",
+        "Xray profiles skipped", "Profiles left as JSON",
     )
 } else {
     UiStrings(
@@ -148,5 +151,6 @@ fun strings(language: String): UiStrings = if (language == "en") {
         "Если вам нравится проект, поддержите звёздами на GitHub оригинальный Happwner и этот настольный форк.",
         "Автор оригинального Happwner", "Автор Happwner PC", "Профиль", "Проект",
         "Не удалось открыть ссылку в системном браузере.",
+        "Пропущено Xray-профилей", "Оставлено профилей в JSON",
     )
 }

@@ -28,6 +28,8 @@ The conversion rule is to avoid producing a configuration that looks valid while
 
 If one input contains both supported and unsupported proxy outbounds, full conversion is rejected as a unit as well: individual profiles no longer disappear from the result unnoticed.
 
+Processing results now carry explicit loss counters. In `JSON → URI`, an unrepresentable profile remains as its original JSON and the UI shows a warning. In `Xray → sing-box`, skips in a mixed subscription are shown on the subscription card and in diagnostics; if no Xray profile can be retained, the Bridge returns an explicit processing error instead of an empty subscription.
+
 The current sing-box schema is also followed for DNS-over-HTTP/3 (`type: h3`) and remote rule-set downloads through `http_client` instead of deprecated `download_detour`. WireGuard validates required keys and peer endpoints before conversion; when Xray omits local addresses, its documented defaults are emitted with the CIDR prefixes required by sing-box.
 
 For `JSON → URI`, legacy VLESS flow `xtls-rprx-vision-udp443` is normalized, IDN names are converted to ASCII, and Hysteria2 preserves multi-port/port hopping, fixed ECH, and a single Xray certificate pin. Hysteria2 fields that the official URI cannot represent are not converted with silent loss.

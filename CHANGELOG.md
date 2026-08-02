@@ -18,6 +18,8 @@ All notable changes to Happwner PC are documented in this file.
 - DNS H3 and remote rule-set downloads now follow the current sing-box schema; WireGuard no longer receives an invented address or port;
 - VLESS URIs normalize legacy flow and IDNs, while Hysteria2 URIs preserve multi-port, fixed ECH, and Xray certificate pins;
 - legacy arrays that cannot fit one sing-box outbound losslessly are rejected explicitly instead of being truncated to their first item.
+- subscription cards, profile copying, and diagnostics now report Xray profiles skipped and profiles preserved as JSON;
+- a fully unsupported Xray subscription now fails explicitly instead of returning an empty response.
 
 ## 0.1.6 - 2026-08-01
 
