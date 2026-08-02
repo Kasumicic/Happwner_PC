@@ -28,6 +28,16 @@ The conversion rule is to avoid producing a configuration that looks valid while
 
 If one input contains both supported and unsupported proxy outbounds, full conversion is rejected as a unit as well: individual profiles no longer disappear from the result unnoticed.
 
+The current sing-box schema is also followed for DNS-over-HTTP/3 (`type: h3`) and remote rule-set downloads through `http_client` instead of deprecated `download_detour`. WireGuard validates required keys and peer endpoints before conversion; when Xray omits local addresses, its documented defaults are emitted with the CIDR prefixes required by sing-box.
+
+For `JSON → URI`, legacy VLESS flow `xtls-rprx-vision-udp443` is normalized, IDN names are converted to ASCII, and Hysteria2 preserves multi-port/port hopping, fixed ECH, and a single Xray certificate pin. Hysteria2 fields that the official URI cannot represent are not converted with silent loss.
+
+### Intentional limitations
+
+- Full Xray-to-sing-box conversion rejects a legacy outbound with multiple `vnext`, `servers`, or users: one sing-box outbound cannot represent that structure without changing its meaning. `JSON → URI` continues to expand it into separate links.
+- DNS-based Xray ECH and Xray certificate pinning are not substituted with approximate sing-box fields that have different semantics.
+- VMess URIs are still emitted in the legacy Base64 JSON format for compatibility with widely deployed clients; moving to the current Xray URL standard requires a separate client compatibility pass.
+
 ## Bridge behavior
 
 The desktop server preserves the functional Bridge chain:

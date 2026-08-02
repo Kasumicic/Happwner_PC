@@ -198,6 +198,76 @@ class SingBoxConverterTest {
         )
     }
 
+    @Test
+    fun rejectsLegacyCardinalityThatCannotFitOneSingBoxOutbound() {
+        val config = xrayConfig(
+            """{
+              "protocol":"vless",
+              "settings":{"vnext":[
+                {"address":"one.example.com","port":443,"users":[{"id":"11111111-1111-4111-8111-111111111111"}]},
+                {"address":"two.example.com","port":443,"users":[{"id":"22222222-2222-4222-8222-222222222222"}]}
+              ]}
+            }""",
+        )
+
+        assertIs<SingBoxConverter.Result.Unsupported>(SingBoxConverter.convert(config))
+        assertIs<SingBoxConverter.OutboundsResult.Unsupported>(SingBoxConverter.convertToOutbounds(config))
+    }
+
+    @Test
+    fun emitsCurrentH3DnsAndRuleSetHttpClientFields() {
+        val config = JSONObject(
+            xrayConfig(
+                """{
+                  "protocol":"vless",
+                  "tag":"proxy",
+                  "settings":{"address":"server.example.com","port":443,"id":"55555555-5555-4555-8555-555555555555"}
+                }""",
+            ),
+        )
+        config.put("dns", JSONObject().put("servers", org.json.JSONArray().put("h3://dns.example/dns-query")))
+        config.put(
+            "routing",
+            JSONObject().put(
+                "rules",
+                org.json.JSONArray().put(
+                    JSONObject().put("type", "field").put("domain", org.json.JSONArray().put("geosite:category-ads-all"))
+                        .put("outboundTag", "proxy"),
+                ),
+            ),
+        )
+
+        val result = assertIs<SingBoxConverter.Result.Ok>(SingBoxConverter.convert(config.toString())).config
+        val dnsServers = result.getJSONObject("dns").getJSONArray("servers")
+        assertTrue((0 until dnsServers.length()).mapNotNull(dnsServers::optJSONObject).any { it.optString("type") == "h3" })
+        val ruleSet = result.getJSONObject("route").getJSONArray("rule_set").getJSONObject(0)
+        assertTrue(ruleSet.has("http_client"))
+        assertEquals("direct", ruleSet.getJSONObject("http_client").getString("detour"))
+        assertTrue(!ruleSet.has("download_detour"))
+    }
+
+    @Test
+    fun validatesWireguardAndUsesTheDocumentedXrayDefaultAddresses() {
+        fun wireguard(endpoint: String, publicKey: String = "peer-public-key") = xrayConfig(
+            """{
+              "protocol":"wireguard",
+              "tag":"wg",
+              "settings":{
+                "secretKey":"private-key",
+                "peers":[{"endpoint":"$endpoint","publicKey":"$publicKey"}]
+              }
+            }""",
+        )
+
+        val ok = assertIs<SingBoxConverter.Result.Ok>(SingBoxConverter.convert(wireguard("wg.example.com:51820")))
+        val endpoint = ok.config.getJSONArray("endpoints").getJSONObject(0)
+        assertEquals(listOf("10.0.0.1/32", "fd59:7153:2388:b5fd::1/128"), endpoint.getJSONArray("address").toList())
+        assertEquals(51820, endpoint.getJSONArray("peers").getJSONObject(0).getInt("port"))
+
+        assertIs<SingBoxConverter.Result.Unsupported>(SingBoxConverter.convert(wireguard("wg.example.com")))
+        assertIs<SingBoxConverter.Result.Unsupported>(SingBoxConverter.convert(wireguard("wg.example.com:51820", "")))
+    }
+
     private fun xrayConfig(outbound: String): String = JSONObject()
         .put("outbounds", org.json.JSONArray().put(JSONObject(outbound)))
         .toString()

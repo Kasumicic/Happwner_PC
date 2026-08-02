@@ -15,6 +15,9 @@ All notable changes to Happwner PC are documented in this file.
 - current Xray Hysteria 2 outbounds are now handled by both URI and sing-box conversion.
 - Xray RAW HTTP camouflage and incompatible Xray QUIC are no longer emitted as sing-box transports;
 - fixed ECH is copied as content, while unsupported TLS constraints and mixed partial conversions are rejected safely.
+- DNS H3 and remote rule-set downloads now follow the current sing-box schema; WireGuard no longer receives an invented address or port;
+- VLESS URIs normalize legacy flow and IDNs, while Hysteria2 URIs preserve multi-port, fixed ECH, and Xray certificate pins;
+- legacy arrays that cannot fit one sing-box outbound losslessly are rejected explicitly instead of being truncated to their first item.
 
 ## 0.1.6 - 2026-08-01
 

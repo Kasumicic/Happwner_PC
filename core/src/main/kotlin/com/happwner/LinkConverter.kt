@@ -4,6 +4,7 @@ import com.happwner.compat.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
+import java.net.IDN
 import java.net.URLEncoder
 
 object LinkConverter {
@@ -654,7 +655,7 @@ object LinkConverter {
                     singBox -> ob.optString("flow", "")
                     legacyUser != null -> legacyUser.optString("flow", "")
                     else -> settings?.optString("flow", "")
-                },
+                }.let(SingBoxConverter::normalizeFlow),
             )
             if (singBox) {
                 appendSingBoxQuery(query, ob)
@@ -685,8 +686,11 @@ object LinkConverter {
     private fun encodeUriComponent(value: String): String =
         URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
-    private fun uriHost(address: String): String =
-        if (':' in address && !address.startsWith("[") && !address.endsWith("]")) "[$address]" else address
+    private fun uriHost(address: String): String {
+        val unwrapped = address.removePrefix("[").removeSuffix("]")
+        if (':' in unwrapped) return "[$unwrapped]"
+        return IDN.toASCII(unwrapped, IDN.USE_STD3_ASCII_RULES)
+    }
 
     private fun normalizedNetwork(stream: JSONObject?): String {
         val raw = stream?.optString("method", "")
@@ -1096,6 +1100,12 @@ object LinkConverter {
                 legacyServer != null -> legacyServer.optInt("port", 0)
                 else -> settings?.optInt("port", 0) ?: 0
             }
+            val portSpec = if (singBox && hasJsonValue(ob.opt("server_ports"))) {
+                hysteria2UriPortSpec(ob.opt("server_ports")) ?: return null
+            } else {
+                if (port !in 1..65535) return null
+                port.toString()
+            }
             val stream = ob.optJSONObject("streamSettings")
             val legacyHy2 = stream?.optJSONObject("hy2Settings")
             val currentHy2 = stream?.optJSONObject("hysteriaSettings")
@@ -1104,10 +1114,14 @@ object LinkConverter {
                 legacyHy2 != null -> legacyHy2.optString("password", "")
                 else -> currentHy2?.optString("auth", "").orEmpty()
             }
-            if (address.isBlank() || port !in 1..65535 || password.isBlank()) return null
+            if (address.isBlank() || password.isBlank()) return null
 
             val query = linkedMapOf<String, String>()
             val obfs = if (singBox) ob.optJSONObject("obfs") else legacyHy2?.optJSONObject("obfs")
+            if (singBox && obfs != null &&
+                (hasJsonValue(obfs.opt("min_packet_size")) || hasJsonValue(obfs.opt("max_packet_size")))) {
+                return null
+            }
             putIfNotBlank(query, "obfs", obfs?.optString("type", ""))
             putIfNotBlank(query, "obfs-password", obfs?.optString("password", ""))
             if (singBox) {
@@ -1115,17 +1129,68 @@ object LinkConverter {
                 putIfNotBlank(query, "sni", tls?.optString("server_name", ""))
                 putIfNotBlank(query, "alpn", jsonStringList(tls?.opt("alpn")))
                 if (tls?.optBoolean("insecure", false) == true) query["insecure"] = "1"
+                val ech = tls?.optJSONObject("ech")
+                if (ech?.optBoolean("enabled", false) == true) {
+                    if (ech.optString("config_path", "").isNotBlank()) return null
+                    val configs = jsonStringValues(ech.opt("config"))
+                    if (configs.size != 1) return null
+                    query["ech"] = configs.single()
+                }
             } else {
                 val tls = stream?.optJSONObject("tlsSettings")
                 putIfNotBlank(query, "sni", tls?.optString("serverName", ""))
                 putIfNotBlank(query, "alpn", jsonStringList(tls?.opt("alpn")))
                 if (tls?.optBoolean("allowInsecure", false) == true) query["insecure"] = "1"
+                val pins = jsonStringValues(tls?.opt("pinnedPeerCertSha256"))
+                if (pins.size > 1) return null
+                putIfNotBlank(query, "pinSHA256", pins.singleOrNull())
+                val echRaw = tls?.opt("echConfigList").takeIf(::hasJsonValue) ?: tls?.opt("ech")
+                val echValues = jsonStringValues(echRaw)
+                if (echValues.size > 1 || echValues.any { "://" in it }) return null
+                putIfNotBlank(query, "ech", echValues.singleOrNull())
             }
             val finalRem = ob.optString("tag", "").ifBlank { ob.optString("remarks", "").ifBlank { rem } }
             val queryString = encodedQuery(query).takeIf(String::isNotEmpty)?.let { "?$it" }.orEmpty()
-            "hysteria2://${encodeUriComponent(password)}@${uriHost(address)}:$port/$queryString#" +
+            "hysteria2://${encodeUriComponent(password)}@${uriHost(address)}:$portSpec/$queryString#" +
                 encodeUriComponent(finalRem)
         } catch (_: Exception) { null }
+    }
+
+    private fun hasJsonValue(value: Any?): Boolean = when (value) {
+        null, JSONObject.NULL -> false
+        is String -> value.isNotBlank()
+        is JSONArray -> (0 until value.length()).any { hasJsonValue(value.opt(it)) }
+        else -> true
+    }
+
+    private fun jsonStringValues(value: Any?): List<String> = when (value) {
+        is JSONArray -> (0 until value.length()).mapNotNull {
+            value.optString(it, "").trim().takeIf(String::isNotEmpty)
+        }
+        is String -> listOfNotNull(value.trim().takeIf(String::isNotEmpty))
+        else -> emptyList()
+    }
+
+    private fun hysteria2UriPortSpec(value: Any?): String? {
+        val rawTokens = when (value) {
+            is JSONArray -> (0 until value.length()).flatMap { index ->
+                value.opt(index)?.toString()?.split(',') ?: emptyList()
+            }
+            null, JSONObject.NULL -> emptyList()
+            else -> value.toString().split(',')
+        }
+        val normalized = rawTokens.map { raw ->
+            val parts = raw.trim().split(':', '-', limit = 2)
+            if (parts.isEmpty() || parts.size > 2) return null
+            val first = parts[0].toIntOrNull()?.takeIf { it in 1..65535 } ?: return null
+            if (parts.size == 1) {
+                first.toString()
+            } else {
+                val last = parts[1].toIntOrNull()?.takeIf { it in first..65535 } ?: return null
+                "$first-$last"
+            }
+        }
+        return normalized.takeIf(List<String>::isNotEmpty)?.joinToString(",")
     }
 
     // TUIC: uuid:password@host:port with a congestion/tls query

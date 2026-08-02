@@ -441,6 +441,62 @@ class LinkConverterTest {
         assertEquals(listOf("[2001:db8::10]", "[2001:db8::11]", "[2001:db8::12]", "[2001:db8::13]"), hosts)
     }
 
+    @Test
+    fun vlessNormalizesLegacyFlowAndIdnHostForSharing() {
+        val config = """
+            {"outbounds":[{
+              "protocol":"vless",
+              "settings":{"address":"пример.рф","port":443,"id":"77777777-7777-4777-8777-777777777777","flow":"xtls-rprx-vision-udp443"}
+            }]}
+        """.trimIndent()
+
+        val link = LinkConverter.convert(config, jsonToUri = true, tryBase64 = false)
+
+        assertTrue(link.contains("@xn--e1afmkfd.xn--p1ai:443"))
+        assertEquals("xtls-rprx-vision", parseQuery(link)["flow"])
+    }
+
+    @Test
+    fun singBoxHysteria2SharesPortHoppingAndFixedEch() {
+        val config = """
+            {
+              "type":"hysteria2",
+              "tag":"Port hopping",
+              "server":"hy.example.com",
+              "server_ports":[443,"5000:6000"],
+              "password":"secret",
+              "tls":{"enabled":true,"server_name":"front.example.com","ech":{"enabled":true,"config":["BASE64-ECH"]}}
+            }
+        """.trimIndent()
+
+        val link = LinkConverter.convert(config, jsonToUri = true, tryBase64 = false)
+        val query = parseRawQuery(link)
+
+        assertTrue(link.startsWith("hysteria2://secret@hy.example.com:443,5000-6000/"))
+        assertEquals("front.example.com", query["sni"])
+        assertEquals("BASE64-ECH", query["ech"])
+    }
+
+    @Test
+    fun xrayHysteria2SharesCertificatePin() {
+        val config = """
+            {"outbounds":[{
+              "protocol":"hysteria",
+              "settings":{"version":2,"address":"hy.example.com","port":443},
+              "streamSettings":{
+                "method":"hysteria",
+                "security":"tls",
+                "hysteriaSettings":{"version":2,"auth":"secret"},
+                "tlsSettings":{"serverName":"front.example.com","pinnedPeerCertSha256":"deadbeef"}
+              }
+            }]}
+        """.trimIndent()
+
+        val link = LinkConverter.convert(config, jsonToUri = true, tryBase64 = false)
+
+        assertEquals("deadbeef", parseQuery(link)["pinSHA256"])
+    }
+
     private fun xrayConfig(
         security: String,
         network: String = "tcp",
@@ -472,6 +528,15 @@ class LinkConverterTest {
 
     private fun parseQuery(link: String): Map<String, String> {
         val rawQuery = URI(link).rawQuery
+        return decodeQuery(rawQuery)
+    }
+
+    private fun parseRawQuery(link: String): Map<String, String> {
+        val rawQuery = link.substringAfter('?', "").substringBefore('#')
+        return decodeQuery(rawQuery)
+    }
+
+    private fun decodeQuery(rawQuery: String): Map<String, String> {
         return rawQuery.split('&').associate { part ->
             val (key, value) = part.split('=', limit = 2)
             key to URLDecoder.decode(value, Charsets.UTF_8)

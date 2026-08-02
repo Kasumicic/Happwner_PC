@@ -64,8 +64,8 @@ object SingBoxConverter {
         "IPOnDemand" to "prefer_ipv4"
     )
 
-    private val REMOTE_DNS_TYPES = setOf("https", "http3", "tls", "quic", "tcp", "udp")
-    private val ENCRYPTED_DNS_TYPES = setOf("https", "http3", "tls", "quic", "tcp")
+    private val REMOTE_DNS_TYPES = setOf("https", "h3", "tls", "quic", "tcp", "udp")
+    private val ENCRYPTED_DNS_TYPES = setOf("https", "h3", "tls", "quic", "tcp")
 
     private val LOG_LEVEL_MAP = mapOf(
         "debug" to "debug",
@@ -815,7 +815,9 @@ object SingBoxConverter {
     private fun isOutboundSupported(o: JSONObject): Boolean {
         val proto = o.optString("protocol", "")
         if (proto !in XRAY_PROTOCOLS_PROXY && proto !in XRAY_PROTOCOLS_AUX) return false
-        if (proto in XRAY_PROTOCOLS_AUX || proto == "wireguard") return true
+        if (proto in XRAY_PROTOCOLS_AUX) return true
+        if (proto == "wireguard") return isWireguardSupported(o)
+        if (!hasLosslessCardinality(o, proto)) return false
         val stream = o.optJSONObject("streamSettings") ?: JSONObject()
         val net = normalizedXrayNetwork(stream)
         if (proto in setOf("hysteria", "hysteria2")) {
@@ -852,6 +854,40 @@ object SingBoxConverter {
             if (method !in SS_METHODS_OK) return false
             val plugin = srv?.optString("plugin", "") ?: ""
             if (plugin.isNotEmpty() && plugin !in SS_PLUGINS_OK) return false
+        }
+        return true
+    }
+
+    private fun hasLosslessCardinality(o: JSONObject, proto: String): Boolean {
+        val settings = o.optJSONObject("settings") ?: return true
+        if (proto == "vless" || proto == "vmess") {
+            val vnext = settings.optJSONArray("vnext") ?: return true
+            if (vnext.length() != 1) return false
+            val users = vnext.optJSONObject(0)?.optJSONArray("users") ?: return false
+            return users.length() == 1
+        }
+
+        if (proto in setOf("trojan", "shadowsocks", "hysteria", "hysteria2", "socks", "http")) {
+            val servers = settings.optJSONArray("servers") ?: return true
+            if (servers.length() != 1) return false
+            if (proto == "socks" || proto == "http") {
+                val users = servers.optJSONObject(0)?.optJSONArray("users")
+                if (users != null && users.length() > 1) return false
+            }
+        }
+        return true
+    }
+
+    private fun isWireguardSupported(o: JSONObject): Boolean {
+        val settings = o.optJSONObject("settings") ?: return false
+        if (settings.optString("secretKey", "").isBlank()) return false
+        val peers = settings.optJSONArray("peers") ?: return false
+        if (peers.length() == 0) return false
+        for (index in 0 until peers.length()) {
+            val peer = peers.optJSONObject(index) ?: return false
+            if (peer.optString("publicKey", "").isBlank()) return false
+            val endpoint = splitHostPort(peer.optString("endpoint", ""))
+            if (endpoint.host.isBlank() || endpoint.port !in 1..65535) return false
         }
         return true
     }
@@ -1561,9 +1597,7 @@ object SingBoxConverter {
         if (addresses.length() > 0) {
             ep.put("address", addresses)
         } else {
-            val fallback = JSONArray()
-            fallback.put("10.0.0.2/32")
-            ep.put("address", fallback)
+            ep.put("address", JSONArray().put("10.0.0.1/32").put("fd59:7153:2388:b5fd::1/128"))
         }
         ep.put("private_key", settings.optString("secretKey", ""))
         val mtuVal = settings.opt("mtu")
@@ -1598,7 +1632,7 @@ object SingBoxConverter {
                 val hp = splitHostPort(endpoint)
                 val peer = JSONObject()
                 peer.put("address", hp.host)
-                peer.put("port", hp.port ?: 0)
+                peer.put("port", hp.port!!)
                 peer.put("public_key", p.optString("publicKey", ""))
                 val allowed = p.optJSONArray("allowedIPs")
                 if (allowed != null && allowed.length() > 0) {
@@ -1767,7 +1801,7 @@ object SingBoxConverter {
                 f.put("server", hp.host)
                 if (hp.port != null) f.put("server_port", hp.port)
                 if (path.isNotEmpty()) f.put("path", "/$path")
-                return DnsAddr("http3", f)
+                return DnsAddr("h3", f)
             }
             if (scheme in setOf("tls", "quic", "tcp", "udp")) {
                 val hp = splitHostPort(rest)
@@ -2252,7 +2286,7 @@ object SingBoxConverter {
         }
 
         val dnsDetour: String? = proxyTags.firstOrNull { it.isNotEmpty() }
-        val ruleSetDownloadDetour = "direct"
+        val ruleSetHttpClient = JSONObject().put("detour", "direct")
         val requiredRuleSets = mutableSetOf<String>()
 
         // Convert routing rules; prepend the built-in pre-rules (sniff/hijack-dns/resolve)
@@ -2317,7 +2351,7 @@ object SingBoxConverter {
                     else -> continue
                 }
                 rs.put("url", url)
-                rs.put("download_detour", ruleSetDownloadDetour)
+                rs.put("http_client", JSONObject(ruleSetHttpClient.toString()))
                 rs.put("update_interval", "1d")
                 rsArr.put(rs)
             }
