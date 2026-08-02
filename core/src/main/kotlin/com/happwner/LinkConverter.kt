@@ -73,6 +73,13 @@ object LinkConverter {
             if (arr != null) return ConversionStats(arr.text, arr.skipped)
         }
 
+        // JSON-to-URI must handle a complete pretty-printed JSON document as one value.
+        // Walking it line by line would leave multiline provider responses unchanged.
+        if (jsonToUri && (trimmed.startsWith("{") || trimmed.startsWith("[")) && isWholeJsonValue(trimmed)) {
+            val converted = convertJsonValueToLinks(trimmed)
+            if (converted != null) return ConversionStats(converted, 0)
+        }
+
         val res = StringBuilder()
         var skipped = 0
         // Otherwise walk line by line
@@ -148,6 +155,28 @@ object LinkConverter {
             res.append(t).append("\n")
         }
         return ConversionStats(res.toString().trim(), skipped)
+    }
+
+    private fun convertJsonValueToLinks(text: String): String? = try {
+        if (text.startsWith("[")) {
+            val array = JSONArray(text)
+            buildList {
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index)
+                    if (item != null) {
+                        add(processJson(item) ?: item.toString())
+                    } else {
+                        val raw = array.opt(index)
+                        if (raw != null && raw !== JSONObject.NULL && raw.toString().isNotBlank()) add(raw.toString())
+                    }
+                }
+            }.joinToString("\n").takeIf(String::isNotBlank)
+        } else {
+            val obj = JSONObject(text)
+            processJson(obj) ?: text
+        }
+    } catch (_: Exception) {
+        null
     }
 
     // Single-line JSON? (no newline within the first 1KB)
@@ -483,42 +512,94 @@ object LinkConverter {
     // JSON outbound to a link (vless/vmess/ss/trojan/hysteria2/tuic)
     private fun processJson(root: JSONObject): String? {
         if (isShadowsocks(root)) {
-            return buildShadowsocks(root, root.optString("remarks", ""))
+            return buildOutboundLinks(root, root.optString("remarks", "")).joinToString("\n").takeIf(String::isNotEmpty)
         }
 
         val protocol = root.optString("protocol", root.optString("type")).lowercase()
-        when (protocol) {
-            "vmess" -> return buildVmess(root, root.optString("tag", root.optString("remarks", "")))
-            "tuic" -> return buildTuic(root, root.optString("tag", root.optString("remarks", "")))
+        if (protocol in CONVERTIBLE_PROTOCOLS) {
+            return buildOutboundLinks(root, root.optString("tag", root.optString("remarks", "")))
+                .joinToString("\n")
+                .takeIf(String::isNotEmpty)
         }
 
         val obs = root.optJSONArray("outbounds")
         if (obs != null) {
             val rem = root.optString("remarks", "")
             val converted = mutableListOf<String>()
+            var failedSupportedOutbound = false
             for (i in 0 until obs.length()) {
                 val ob = obs.optJSONObject(i) ?: continue
-                val p = ob.optString("protocol", ob.optString("type")).lowercase()
-                val link = when (p) {
-                    "vless" -> buildVless(ob, rem)
-                    "vmess" -> buildVmess(ob, rem)
-                    "shadowsocks" -> buildShadowsocks(ob, rem)
-                    "trojan" -> buildTrojan(ob, rem)
-                    "hysteria2" -> buildHysteria2(ob, rem)
-                    "tuic" -> buildTuic(ob, rem)
-                    else -> if (isShadowsocks(ob)) buildShadowsocks(ob, rem) else null
+                val links = buildOutboundLinks(ob, rem)
+                val protocolName = ob.optString("protocol", ob.optString("type")).lowercase()
+                if (links.isEmpty() && (protocolName in PROXY_PROTOCOLS || isShadowsocks(ob))) {
+                    failedSupportedOutbound = true
                 }
-                link?.let(converted::add)
+                converted.addAll(links)
             }
+            if (failedSupportedOutbound) return null
             return converted.joinToString("\n").takeIf(String::isNotEmpty)
         }
         return null
+    }
+
+    private fun buildOutboundLinks(outbound: JSONObject, remarks: String): List<String> {
+        val protocol = outbound.optString("protocol", outbound.optString("type")).lowercase()
+        val expanded = when (protocol) {
+            "vless", "vmess" -> expandLegacyVnext(outbound)
+            "shadowsocks", "trojan", "hysteria", "hysteria2" -> expandLegacyServers(outbound)
+            else -> listOf(outbound)
+        }
+        return expanded.mapNotNull { item ->
+            when (protocol) {
+                "vless" -> buildVless(item, remarks)
+                "vmess" -> buildVmess(item, remarks)
+                "shadowsocks" -> buildShadowsocks(item, remarks)
+                "trojan" -> buildTrojan(item, remarks)
+                "hysteria", "hysteria2" -> buildHysteria2(item, remarks)
+                "tuic" -> buildTuic(item, remarks)
+                else -> if (isShadowsocks(item)) buildShadowsocks(item, remarks) else null
+            }
+        }
+    }
+
+    private fun expandLegacyVnext(outbound: JSONObject): List<JSONObject> {
+        val vnext = outbound.optJSONObject("settings")?.optJSONArray("vnext") ?: return listOf(outbound)
+        val expanded = mutableListOf<JSONObject>()
+        for (serverIndex in 0 until vnext.length()) {
+            val server = vnext.optJSONObject(serverIndex) ?: continue
+            val users = server.optJSONArray("users")
+            if (users == null || users.length() == 0) continue
+            for (userIndex in 0 until users.length()) {
+                val user = users.optJSONObject(userIndex) ?: continue
+                val copy = JSONObject(outbound.toString())
+                val serverCopy = JSONObject(server.toString()).put("users", JSONArray().put(JSONObject(user.toString())))
+                copy.getJSONObject("settings").put("vnext", JSONArray().put(serverCopy))
+                expanded.add(copy)
+            }
+        }
+        return expanded.ifEmpty { listOf(outbound) }
+    }
+
+    private fun expandLegacyServers(outbound: JSONObject): List<JSONObject> {
+        val servers = outbound.optJSONObject("settings")?.optJSONArray("servers") ?: return listOf(outbound)
+        if (servers.length() <= 1) return listOf(outbound)
+        return buildList {
+            for (index in 0 until servers.length()) {
+                val server = servers.optJSONObject(index) ?: continue
+                val copy = JSONObject(outbound.toString())
+                copy.getJSONObject("settings").put("servers", JSONArray().put(JSONObject(server.toString())))
+                add(copy)
+            }
+        }.ifEmpty { listOf(outbound) }
     }
 
     private fun isShadowsocks(obj: JSONObject): Boolean {
         if (obj.has("server") && obj.has("server_port") && obj.has("password") && obj.has("method")) return true
         val settings = obj.optJSONObject("settings")
         if (settings != null) {
+            if (settings.has("address") && settings.has("port") && settings.has("password") && settings.has("method")) {
+                return true
+            }
             val servers = settings.optJSONArray("servers")
             if (servers != null && servers.length() > 0) {
                 val s = servers.getJSONObject(0)
@@ -528,95 +609,63 @@ object LinkConverter {
         return false
     }
 
+    private val CONVERTIBLE_PROTOCOLS = setOf(
+        "vless", "vmess", "shadowsocks", "trojan", "hysteria", "hysteria2", "tuic",
+    )
+    private val PROXY_PROTOCOLS = CONVERTIBLE_PROTOCOLS + setOf(
+        "socks", "http", "wireguard", "ssr", "anytls", "ssh", "naive", "shadowtls",
+    )
+
     // VLESS: vnext/users plus reality/stream params
     private fun buildVless(ob: JSONObject, rem: String): String? {
         return try {
-            val s = ob.optJSONObject("settings") ?: return null
-            val vnext = s.optJSONArray("vnext") ?: return null
-            if (vnext.length() == 0) return null
-            val vn = vnext.getJSONObject(0)
-            val users = vn.optJSONArray("users") ?: return null
-            if (users.length() == 0) return null
-            val u = users.getJSONObject(0)
-            val ss = ob.optJSONObject("streamSettings")
-            val enc = URLEncoder.encode(rem, "UTF-8").replace("+", "%20")
-            val security = ss?.optString("security", "none") ?: "none"
-            val type = ss?.optString("network", "tcp") ?: "tcp"
+            val settings = ob.optJSONObject("settings")
+            val legacyServer = settings?.optJSONArray("vnext")?.optJSONObject(0)
+            val legacyUser = legacyServer?.optJSONArray("users")?.optJSONObject(0)
+            val singBox = ob.optString("type").equals("vless", ignoreCase = true)
+            val address = when {
+                singBox -> ob.optString("server", "")
+                legacyServer != null -> legacyServer.optString("address", "")
+                else -> settings?.optString("address", "").orEmpty()
+            }
+            val port = when {
+                singBox -> ob.optInt("server_port", 0)
+                legacyServer != null -> legacyServer.optInt("port", 0)
+                else -> settings?.optInt("port", 0) ?: 0
+            }
+            val id = when {
+                singBox -> ob.optString("uuid", "")
+                legacyUser != null -> legacyUser.optString("id", "")
+                else -> settings?.optString("id", "").orEmpty()
+            }
+            if (address.isBlank() || port !in 1..65535 || id.isBlank()) return null
+
             val query = linkedMapOf(
-                "encryption" to u.optString("encryption", "none"),
-                "security" to security,
-                "type" to type,
+                "encryption" to when {
+                    singBox -> ob.optString("encryption", "none")
+                    legacyUser != null -> legacyUser.optString("encryption", "none")
+                    else -> settings?.optString("encryption", "none") ?: "none"
+                },
             )
-            putIfNotBlank(query, "flow", u.optString("flow", ""))
-
-            when (security) {
-                "reality" -> {
-                    val rs = ss?.optJSONObject("realitySettings")
-                    putIfNotBlank(query, "sni", rs?.optString("serverName", ""))
-                    putIfNotBlank(query, "fp", rs?.optString("fingerprint", ""))
-                    putIfNotBlank(query, "pbk", rs?.optString("publicKey", ""))
-                    putIfNotBlank(query, "sid", rs?.optString("shortId", ""))
-                    putIfNotBlank(query, "spx", rs?.optString("spiderX", ""))
-                }
-                "tls" -> {
-                    val ts = ss?.optJSONObject("tlsSettings")
-                    putIfNotBlank(query, "sni", ts?.optString("serverName", ""))
-                    putIfNotBlank(query, "fp", ts?.optString("fingerprint", ""))
-                    putIfNotBlank(query, "alpn", jsonStringList(ts?.opt("alpn")))
-                    if (ts?.optBoolean("allowInsecure", false) == true) {
-                        query["allowInsecure"] = "1"
-                    }
-                }
+            putIfNotBlank(
+                query,
+                "flow",
+                when {
+                    singBox -> ob.optString("flow", "")
+                    legacyUser != null -> legacyUser.optString("flow", "")
+                    else -> settings?.optString("flow", "")
+                },
+            )
+            if (singBox) {
+                appendSingBoxQuery(query, ob)
+            } else {
+                val stream = ob.optJSONObject("streamSettings")
+                appendXraySecurityQuery(query, stream)
+                appendXrayTransportQuery(query, stream)
             }
 
-            when (type) {
-                "ws" -> {
-                    val ws = ss?.optJSONObject("wsSettings")
-                    putIfNotBlank(query, "path", ws?.optString("path", ""))
-                    putIfNotBlank(query, "host", ws?.optJSONObject("headers")?.optString("Host", ""))
-                }
-                "grpc" -> {
-                    val grpc = ss?.optJSONObject("grpcSettings")
-                    putIfNotBlank(query, "serviceName", grpc?.optString("serviceName", ""))
-                    putIfNotBlank(query, "authority", grpc?.optString("authority", ""))
-                    if (grpc?.optBoolean("multiMode", false) == true) query["mode"] = "multi"
-                }
-                "xhttp", "splithttp" -> {
-                    val xhttp = ss?.optJSONObject("xhttpSettings")
-                        ?: ss?.optJSONObject("splithttpSettings")
-                    putIfNotBlank(query, "path", xhttp?.optString("path", ""))
-                    putIfNotBlank(query, "host", jsonStringList(xhttp?.opt("host")))
-                    putIfNotBlank(query, "mode", xhttp?.optString("mode", ""))
-                    xhttp?.optJSONObject("extra")?.let { query["extra"] = it.toString() }
-                }
-                "httpupgrade" -> {
-                    val httpUpgrade = ss?.optJSONObject("httpupgradeSettings")
-                    putIfNotBlank(query, "path", httpUpgrade?.optString("path", ""))
-                    putIfNotBlank(query, "host", httpUpgrade?.optString("host", ""))
-                }
-                "h2", "http" -> {
-                    val http = ss?.optJSONObject("httpSettings")
-                    putIfNotBlank(query, "path", http?.optString("path", ""))
-                    putIfNotBlank(query, "host", jsonStringList(http?.opt("host")))
-                }
-                "tcp" -> {
-                    val headerType = ss?.optJSONObject("tcpSettings")
-                        ?.optJSONObject("header")
-                        ?.optString("type", "")
-                    putIfNotBlank(query, "headerType", headerType)
-                }
-                "kcp" -> {
-                    val kcp = ss?.optJSONObject("kcpSettings")
-                    putIfNotBlank(query, "headerType", kcp?.optJSONObject("header")?.optString("type", ""))
-                    putIfNotBlank(query, "seed", kcp?.optString("seed", ""))
-                }
-            }
-
-            val queryString = query.entries.joinToString("&") { (key, value) ->
-                "$key=${encodeUriComponent(value)}"
-            }
-            val address = vn.getString("address").let { if (':' in it && !it.startsWith("[")) "[$it]" else it }
-            "vless://${encodeUriComponent(u.getString("id"))}@$address:${vn.getInt("port")}?$queryString#$enc"
+            val enc = encodeUriComponent(ob.optString("tag", "").ifBlank { rem })
+            "vless://${encodeUriComponent(id)}@${uriHost(address)}:$port?${encodedQuery(query)}#$enc"
         } catch (_: Exception) { null }
     }
 
@@ -639,6 +688,164 @@ object LinkConverter {
     private fun uriHost(address: String): String =
         if (':' in address && !address.startsWith("[") && !address.endsWith("]")) "[$address]" else address
 
+    private fun normalizedNetwork(stream: JSONObject?): String {
+        val raw = stream?.optString("method", "")
+            ?.takeIf(String::isNotBlank)
+            ?: stream?.optString("network", "tcp")
+            ?: "tcp"
+        return when (raw.lowercase()) {
+            "raw" -> "tcp"
+            "websocket" -> "ws"
+            "mkcp" -> "kcp"
+            else -> raw.lowercase()
+        }
+    }
+
+    private fun appendXraySecurityQuery(query: MutableMap<String, String>, stream: JSONObject?) {
+        val security = stream?.optString("security", "none")?.ifBlank { "none" } ?: "none"
+        query["security"] = security
+        when (security) {
+            "reality" -> {
+                val reality = stream?.optJSONObject("realitySettings")
+                putIfNotBlank(query, "sni", reality?.optString("serverName", ""))
+                putIfNotBlank(query, "fp", reality?.optString("fingerprint", ""))
+                putIfNotBlank(
+                    query,
+                    "pbk",
+                    reality?.optString("password", "")?.takeIf(String::isNotBlank)
+                        ?: reality?.optString("publicKey", ""),
+                )
+                putIfNotBlank(query, "sid", reality?.optString("shortId", ""))
+                putIfNotBlank(query, "pqv", reality?.optString("mldsa65Verify", ""))
+                putIfNotBlank(query, "spx", reality?.optString("spiderX", ""))
+            }
+            "tls" -> {
+                val tls = stream?.optJSONObject("tlsSettings")
+                putIfNotBlank(query, "sni", tls?.optString("serverName", ""))
+                putIfNotBlank(query, "fp", tls?.optString("fingerprint", ""))
+                putIfNotBlank(query, "alpn", jsonStringList(tls?.opt("alpn")))
+                putIfNotBlank(query, "ech", jsonStringList(tls?.opt("echConfigList")) ?: tls?.optString("ech", ""))
+                putIfNotBlank(query, "pcs", jsonStringList(tls?.opt("pinnedPeerCertSha256")))
+                putIfNotBlank(query, "vcn", tls?.optString("verifyPeerCertByName", ""))
+                if (tls?.optBoolean("allowInsecure", false) == true) query["allowInsecure"] = "1"
+            }
+        }
+    }
+
+    private fun appendXrayTransportQuery(
+        query: MutableMap<String, String>,
+        stream: JSONObject?,
+        network: String = normalizedNetwork(stream),
+    ) {
+        query["type"] = network
+        when (network) {
+            "ws" -> {
+                val ws = stream?.optJSONObject("wsSettings")
+                putIfNotBlank(query, "path", ws?.optString("path", ""))
+                putIfNotBlank(query, "host", headerValue(ws?.optJSONObject("headers"), "Host"))
+            }
+            "grpc" -> {
+                val grpc = stream?.optJSONObject("grpcSettings")
+                putIfNotBlank(query, "serviceName", grpc?.optString("serviceName", ""))
+                putIfNotBlank(query, "authority", grpc?.optString("authority", ""))
+                if (grpc?.optBoolean("multiMode", false) == true) query["mode"] = "multi"
+            }
+            "xhttp" -> {
+                val xhttp = stream?.optJSONObject("xhttpSettings")
+                    ?: stream?.optJSONObject("splithttpSettings")
+                putIfNotBlank(query, "path", xhttp?.optString("path", ""))
+                putIfNotBlank(query, "host", jsonStringList(xhttp?.opt("host")))
+                putIfNotBlank(query, "mode", xhttp?.optString("mode", ""))
+                xhttp?.optJSONObject("extra")?.let { query["extra"] = it.toString() }
+            }
+            "httpupgrade" -> {
+                val upgrade = stream?.optJSONObject("httpupgradeSettings")
+                putIfNotBlank(query, "path", upgrade?.optString("path", ""))
+                putIfNotBlank(
+                    query,
+                    "host",
+                    upgrade?.optString("host", "")?.takeIf(String::isNotBlank)
+                        ?: headerValue(upgrade?.optJSONObject("headers"), "Host"),
+                )
+            }
+            "h2", "http" -> {
+                val http = stream?.optJSONObject("httpSettings")
+                putIfNotBlank(query, "path", http?.optString("path", ""))
+                putIfNotBlank(query, "host", jsonStringList(http?.opt("host")))
+            }
+            "tcp" -> {
+                val tcp = stream?.optJSONObject("tcpSettings") ?: stream?.optJSONObject("rawSettings")
+                putIfNotBlank(query, "headerType", tcp?.optJSONObject("header")?.optString("type", ""))
+            }
+            "kcp" -> {
+                val kcp = stream?.optJSONObject("kcpSettings")
+                putIfNotBlank(query, "headerType", kcp?.optJSONObject("header")?.optString("type", ""))
+                putIfNotBlank(query, "seed", kcp?.optString("seed", ""))
+                putIfNotBlank(query, "mtu", kcp?.opt("mtu")?.toString())
+                putIfNotBlank(query, "tti", kcp?.opt("tti")?.toString())
+            }
+        }
+        stream?.opt("finalmask")?.takeUnless { it === JSONObject.NULL }?.let { value ->
+            query["fm"] = if (value is JSONObject) value.toString() else value.toString()
+        }
+    }
+
+    private fun appendSingBoxQuery(query: MutableMap<String, String>, outbound: JSONObject) {
+        val transport = outbound.optJSONObject("transport")
+        val network = when (transport?.optString("type", "")?.lowercase()) {
+            "websocket" -> "ws"
+            "http" -> "http"
+            "grpc" -> "grpc"
+            "httpupgrade" -> "httpupgrade"
+            "quic" -> "quic"
+            "" , null -> "tcp"
+            else -> transport.optString("type").lowercase()
+        }
+        query["type"] = network
+        when (network) {
+            "ws" -> {
+                putIfNotBlank(query, "path", transport?.optString("path", ""))
+                putIfNotBlank(query, "host", headerValue(transport?.optJSONObject("headers"), "Host"))
+            }
+            "grpc" -> {
+                putIfNotBlank(query, "serviceName", transport?.optString("service_name", ""))
+                putIfNotBlank(query, "authority", transport?.optString("authority", ""))
+            }
+            "http", "httpupgrade" -> {
+                putIfNotBlank(query, "path", transport?.optString("path", ""))
+                putIfNotBlank(query, "host", jsonStringList(transport?.opt("host")))
+            }
+        }
+
+        val tls = outbound.optJSONObject("tls")
+        if (tls?.optBoolean("enabled", false) != true) {
+            query["security"] = "none"
+            return
+        }
+        val reality = tls.optJSONObject("reality")
+        val isReality = reality?.optBoolean("enabled", false) == true
+        query["security"] = if (isReality) "reality" else "tls"
+        putIfNotBlank(query, "sni", tls.optString("server_name", ""))
+        putIfNotBlank(query, "alpn", jsonStringList(tls.opt("alpn")))
+        putIfNotBlank(query, "fp", tls.optJSONObject("utls")?.optString("fingerprint", ""))
+        if (tls.optBoolean("insecure", false)) query["allowInsecure"] = "1"
+        if (isReality) {
+            putIfNotBlank(query, "pbk", reality.optString("public_key", ""))
+            putIfNotBlank(query, "sid", reality.optString("short_id", ""))
+        }
+    }
+
+    private fun headerValue(headers: JSONObject?, expectedName: String): String? {
+        if (headers == null) return null
+        val key = headers.keys().asSequence().firstOrNull { it.equals(expectedName, ignoreCase = true) }
+            ?: return null
+        return jsonStringList(headers.opt(key))
+    }
+
+    private fun encodedQuery(query: Map<String, String>): String = query.entries.joinToString("&") { (key, value) ->
+        "$key=${encodeUriComponent(value)}"
+    }
+
     // VMess: build the legacy JSON blob and base64 it
     private fun buildVmess(ob: JSONObject, rem: String): String? {
         return try {
@@ -646,33 +853,110 @@ object LinkConverter {
             linkJson.put("v", "2")
 
             val settings = ob.optJSONObject("settings")
-            val vnext = settings?.optJSONArray("vnext")?.optJSONObject(0)
+            val legacyServer = settings?.optJSONArray("vnext")?.optJSONObject(0)
+            val legacyUser = legacyServer?.optJSONArray("users")?.optJSONObject(0)
+            val singBox = ob.optString("type").equals("vmess", ignoreCase = true)
 
-            val addr = ob.optString("server", vnext?.optString("address", "") ?: "")
-            val port = if (ob.has("server_port")) ob.getInt("server_port") else vnext?.optInt("port", 0) ?: 0
-            val uuid = ob.optString("uuid", vnext?.optJSONArray("users")?.optJSONObject(0)?.optString("id", "") ?: "")
+            val addr = when {
+                singBox -> ob.optString("server", "")
+                legacyServer != null -> legacyServer.optString("address", "")
+                else -> settings?.optString("address", "").orEmpty()
+            }
+            val port = when {
+                singBox -> ob.optInt("server_port", 0)
+                legacyServer != null -> legacyServer.optInt("port", 0)
+                else -> settings?.optInt("port", 0) ?: 0
+            }
+            val uuid = when {
+                singBox -> ob.optString("uuid", "")
+                legacyUser != null -> legacyUser.optString("id", "")
+                else -> settings?.optString("id", "").orEmpty()
+            }
+            if (addr.isBlank() || port !in 1..65535 || uuid.isBlank()) return null
 
             linkJson.put("add", addr)
             linkJson.put("port", port.toString())
             linkJson.put("id", uuid)
-            linkJson.put("aid", "0")
-            linkJson.put("scy", "auto")
+            linkJson.put(
+                "aid",
+                when {
+                    singBox -> ob.optInt("alter_id", 0)
+                    legacyUser != null -> legacyUser.optInt("alterId", 0)
+                    else -> settings?.optInt("alterId", 0) ?: 0
+                }.toString(),
+            )
+            linkJson.put(
+                "scy",
+                when {
+                    singBox -> ob.optString("security", "auto")
+                    legacyUser != null -> legacyUser.optString("security", "auto")
+                    else -> settings?.optString("security", "auto") ?: "auto"
+                }.ifBlank { "auto" },
+            )
 
             val transport = ob.optJSONObject("transport")
             val stream = ob.optJSONObject("streamSettings")
-            val net = transport?.optString("type") ?: stream?.optString("network") ?: "tcp"
+            val net = if (singBox) {
+                when (transport?.optString("type", "")?.lowercase()) {
+                    "websocket" -> "ws"
+                    "" , null -> "tcp"
+                    else -> transport.optString("type").lowercase()
+                }
+            } else {
+                normalizedNetwork(stream)
+            }
             linkJson.put("net", net)
 
             val tlsObj = ob.optJSONObject("tls")
-            val isTls = tlsObj?.optBoolean("enabled") ?: (stream?.optString("security") == "tls")
-            linkJson.put("tls", if (isTls) "tls" else "")
+            val streamSecurity = stream?.optString("security", "none") ?: "none"
+            val isTls = tlsObj?.optBoolean("enabled") ?: (streamSecurity == "tls" || streamSecurity == "reality")
+            linkJson.put("tls", if (isTls) streamSecurity.takeIf { it == "reality" } ?: "tls" else "")
 
-            if (net == "ws") {
-                val ws = transport ?: stream?.optJSONObject("wsSettings")
-                linkJson.put("path", ws?.optString("path"))
-                val host = ws?.optJSONObject("headers")?.optString("Host") ?: ws?.optString("headers")
-                if (host != null) linkJson.put("host", host)
+            when (net) {
+                "ws" -> {
+                    val ws = transport ?: stream?.optJSONObject("wsSettings")
+                    putJsonIfNotBlank(linkJson, "path", ws?.optString("path", ""))
+                    putJsonIfNotBlank(linkJson, "host", headerValue(ws?.optJSONObject("headers"), "Host"))
+                }
+                "grpc" -> {
+                    val grpc = transport ?: stream?.optJSONObject("grpcSettings")
+                    putJsonIfNotBlank(
+                        linkJson,
+                        "path",
+                        grpc?.optString("service_name", "")?.takeIf(String::isNotBlank)
+                            ?: grpc?.optString("serviceName", ""),
+                    )
+                    putJsonIfNotBlank(linkJson, "host", grpc?.optString("authority", ""))
+                    linkJson.put("type", if (grpc?.optBoolean("multiMode", false) == true) "multi" else "gun")
+                }
+                "h2", "http" -> {
+                    val http = transport ?: stream?.optJSONObject("httpSettings")
+                    putJsonIfNotBlank(linkJson, "path", http?.optString("path", ""))
+                    putJsonIfNotBlank(linkJson, "host", jsonStringList(http?.opt("host")))
+                }
+                "httpupgrade" -> {
+                    val upgrade = transport ?: stream?.optJSONObject("httpupgradeSettings")
+                    putJsonIfNotBlank(linkJson, "path", upgrade?.optString("path", ""))
+                    putJsonIfNotBlank(
+                        linkJson,
+                        "host",
+                        upgrade?.optString("host", "")?.takeIf(String::isNotBlank)
+                            ?: headerValue(upgrade?.optJSONObject("headers"), "Host"),
+                    )
+                }
+                "kcp" -> {
+                    val kcp = stream?.optJSONObject("kcpSettings")
+                    putJsonIfNotBlank(linkJson, "type", kcp?.optJSONObject("header")?.optString("type", ""))
+                    putJsonIfNotBlank(linkJson, "path", kcp?.optString("seed", ""))
+                }
+                "tcp" -> {
+                    val tcp = stream?.optJSONObject("tcpSettings") ?: stream?.optJSONObject("rawSettings")
+                    putJsonIfNotBlank(linkJson, "type", tcp?.optJSONObject("header")?.optString("type", ""))
+                }
             }
+
+            if (singBox) appendSingBoxTlsToVmess(linkJson, tlsObj)
+            else appendXrayTlsToVmess(linkJson, stream)
 
             val finalRem = if (ob.has("tag")) ob.getString("tag") else (if (ob.has("remarks")) ob.getString("remarks") else rem)
             linkJson.put("ps", finalRem)
@@ -682,6 +966,45 @@ object LinkConverter {
         } catch (_: Exception) { null }
     }
 
+    private fun appendXrayTlsToVmess(target: JSONObject, stream: JSONObject?) {
+        when (stream?.optString("security", "none")) {
+            "tls" -> {
+                val tls = stream.optJSONObject("tlsSettings")
+                putJsonIfNotBlank(target, "sni", tls?.optString("serverName", ""))
+                putJsonIfNotBlank(target, "fp", tls?.optString("fingerprint", ""))
+                putJsonIfNotBlank(target, "alpn", jsonStringList(tls?.opt("alpn")))
+            }
+            "reality" -> {
+                val reality = stream.optJSONObject("realitySettings")
+                putJsonIfNotBlank(target, "sni", reality?.optString("serverName", ""))
+                putJsonIfNotBlank(target, "fp", reality?.optString("fingerprint", ""))
+                putJsonIfNotBlank(
+                    target,
+                    "pbk",
+                    reality?.optString("password", "")?.takeIf(String::isNotBlank)
+                        ?: reality?.optString("publicKey", ""),
+                )
+                putJsonIfNotBlank(target, "sid", reality?.optString("shortId", ""))
+                putJsonIfNotBlank(target, "spx", reality?.optString("spiderX", ""))
+            }
+        }
+    }
+
+    private fun appendSingBoxTlsToVmess(target: JSONObject, tls: JSONObject?) {
+        if (tls?.optBoolean("enabled", false) != true) return
+        putJsonIfNotBlank(target, "sni", tls.optString("server_name", ""))
+        putJsonIfNotBlank(target, "alpn", jsonStringList(tls.opt("alpn")))
+        putJsonIfNotBlank(target, "fp", tls.optJSONObject("utls")?.optString("fingerprint", ""))
+        tls.optJSONObject("reality")?.takeIf { it.optBoolean("enabled", false) }?.let { reality ->
+            putJsonIfNotBlank(target, "pbk", reality.optString("public_key", ""))
+            putJsonIfNotBlank(target, "sid", reality.optString("short_id", ""))
+        }
+    }
+
+    private fun putJsonIfNotBlank(target: JSONObject, key: String, value: String?) {
+        if (!value.isNullOrBlank()) target.put(key, value)
+    }
+
     // Shadowsocks: base64(method:password)@host:port
     private fun buildShadowsocks(ob: JSONObject, rem: String): String? {
         return try {
@@ -689,24 +1012,34 @@ object LinkConverter {
             val port: Int
             val method: String
             val password: String
+            var plugin = ""
+            var pluginOptions = ""
             if (ob.has("server")) {
                 address = ob.getString("server")
                 port = ob.getInt("server_port")
                 method = ob.getString("method")
                 password = ob.getString("password")
+                plugin = ob.optString("plugin", "")
+                pluginOptions = ob.optString("plugin_opts", "")
             } else {
                 val settings = ob.optJSONObject("settings")
-                val s = settings?.optJSONArray("servers")?.getJSONObject(0) ?: return null
+                val s = settings?.optJSONArray("servers")?.optJSONObject(0) ?: settings ?: return null
                 address = s.getString("address")
                 port = s.getInt("port")
                 method = s.getString("method")
                 password = s.getString("password")
+                plugin = s.optString("plugin", "")
+                pluginOptions = s.optString("plugin_opts", s.optString("pluginOpts", ""))
             }
             val credentials = "$method:$password"
-            val ui = Base64.encodeToString(credentials.toByteArray(), Base64.NO_WRAP)
-            val finalRem = if (ob.has("remarks")) ob.getString("remarks") else rem
-            val encRem = URLEncoder.encode(finalRem, "UTF-8").replace("+", "%20")
-            "ss://$ui@${uriHost(address)}:$port#$encRem"
+            val ui = Base64.encodeToString(
+                credentials.toByteArray(),
+                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
+            )
+            val finalRem = ob.optString("tag", "").ifBlank { ob.optString("remarks", "").ifBlank { rem } }
+            val pluginValue = listOf(plugin, pluginOptions).filter(String::isNotBlank).joinToString(";")
+            val query = pluginValue.takeIf(String::isNotBlank)?.let { "?plugin=${encodeUriComponent(it)}" }.orEmpty()
+            "ss://$ui@${uriHost(address)}:$port$query#${encodeUriComponent(finalRem)}"
         } catch (_: Exception) { null }
     }
 
@@ -714,45 +1047,36 @@ object LinkConverter {
     private fun buildTrojan(ob: JSONObject, rem: String): String? {
         return try {
             val settings = ob.optJSONObject("settings")
-            val server = settings?.optJSONArray("servers")?.optJSONObject(0) ?: return null
-            val address = server.optString("address")
-            val port = server.optInt("port")
-            val password = server.optString("password")
-
-            val ss = ob.optJSONObject("streamSettings")
-            val network = ss?.optString("network")
-            val security = ss?.optString("security")
-
-            val query = mutableMapOf<String, String>()
-            if (!network.isNullOrEmpty()) query["type"] = network
-
-            if (security == "tls" || security == "reality") {
-                val tls = ss.optJSONObject("tlsSettings") ?: ss.optJSONObject("realitySettings")
-                val sni = tls?.optString("serverName")
-                if (!sni.isNullOrEmpty()) {
-                    query["sni"] = sni
-                    query["host"] = sni
-                }
+            val legacyServer = settings?.optJSONArray("servers")?.optJSONObject(0)
+            val singBox = ob.optString("type").equals("trojan", ignoreCase = true)
+            val address = when {
+                singBox -> ob.optString("server", "")
+                legacyServer != null -> legacyServer.optString("address", "")
+                else -> settings?.optString("address", "").orEmpty()
             }
-
-            if (network == "ws") {
-                val ws = ss.optJSONObject("wsSettings")
-                val path = ws?.optString("path")
-                val host = ws?.optJSONObject("headers")?.optString("Host")
-                if (!path.isNullOrEmpty()) query["path"] = path
-                if (!host.isNullOrEmpty()) query["host"] = host
+            val port = when {
+                singBox -> ob.optInt("server_port", 0)
+                legacyServer != null -> legacyServer.optInt("port", 0)
+                else -> settings?.optInt("port", 0) ?: 0
             }
-
-            val queryStr = query.toList().sortedBy { it.first }.joinToString("&") {
-                "${it.first}=${URLEncoder.encode(it.second, "UTF-8")}"
+            val password = when {
+                singBox -> ob.optString("password", "")
+                legacyServer != null -> legacyServer.optString("password", "")
+                else -> settings?.optString("password", "").orEmpty()
             }
+            if (address.isBlank() || port !in 1..65535 || password.isBlank()) return null
 
-            val queryString = if (queryStr.isNotEmpty()) "?$queryStr" else ""
-            val encPass = URLEncoder.encode(password, "UTF-8")
-            val finalRem = if (ob.has("remarks")) ob.getString("remarks") else rem
-            val encRem = URLEncoder.encode(finalRem, "UTF-8").replace("+", "%20")
-
-            "trojan://$encPass@${uriHost(address)}:$port$queryString#$encRem"
+            val query = linkedMapOf<String, String>()
+            if (singBox) {
+                appendSingBoxQuery(query, ob)
+            } else {
+                val stream = ob.optJSONObject("streamSettings")
+                appendXraySecurityQuery(query, stream)
+                appendXrayTransportQuery(query, stream)
+            }
+            val finalRem = ob.optString("tag", "").ifBlank { ob.optString("remarks", "").ifBlank { rem } }
+            "trojan://${encodeUriComponent(password)}@${uriHost(address)}:$port?${encodedQuery(query)}#" +
+                encodeUriComponent(finalRem)
         } catch (_: Exception) { null }
     }
 
@@ -760,29 +1084,47 @@ object LinkConverter {
     private fun buildHysteria2(ob: JSONObject, rem: String): String? {
         return try {
             val settings = ob.optJSONObject("settings")
-            val server = settings?.optJSONArray("servers")?.optJSONObject(0) ?: return null
-            val address = server.optString("address")
-            val port = server.optInt("port")
+            val legacyServer = settings?.optJSONArray("servers")?.optJSONObject(0)
+            val singBox = ob.optString("type").equals("hysteria2", ignoreCase = true)
+            val address = when {
+                singBox -> ob.optString("server", "")
+                legacyServer != null -> legacyServer.optString("address", "")
+                else -> settings?.optString("address", "").orEmpty()
+            }
+            val port = when {
+                singBox -> ob.optInt("server_port", 0)
+                legacyServer != null -> legacyServer.optInt("port", 0)
+                else -> settings?.optInt("port", 0) ?: 0
+            }
+            val stream = ob.optJSONObject("streamSettings")
+            val legacyHy2 = stream?.optJSONObject("hy2Settings")
+            val currentHy2 = stream?.optJSONObject("hysteriaSettings")
+            val password = when {
+                singBox -> ob.optString("password", "")
+                legacyHy2 != null -> legacyHy2.optString("password", "")
+                else -> currentHy2?.optString("auth", "").orEmpty()
+            }
+            if (address.isBlank() || port !in 1..65535 || password.isBlank()) return null
 
-            val ss = ob.optJSONObject("streamSettings")
-            val hy2 = ss?.optJSONObject("hy2Settings")
-            val password = hy2?.optString("password") ?: ""
-            val obfs = hy2?.optJSONObject("obfs")
-            val obfsType = obfs?.optString("type")
-            val obfsPassword = obfs?.optString("password")
-
-            val tls = ss?.optJSONObject("tlsSettings")
-            val sni = tls?.optString("serverName")
-
-            val query = StringBuilder()
-            if (!obfsType.isNullOrEmpty()) query.append("&obfs=").append(URLEncoder.encode(obfsType, "UTF-8"))
-            if (!obfsPassword.isNullOrEmpty()) query.append("&obfs-password=").append(URLEncoder.encode(obfsPassword, "UTF-8"))
-            if (!sni.isNullOrEmpty()) query.append("&sni=").append(URLEncoder.encode(sni, "UTF-8"))
-
-            val queryString = if (query.isNotEmpty()) "?" + query.toString().substring(1) else ""
-            val encRem = URLEncoder.encode(rem, "UTF-8").replace("+", "%20")
-
-            "hysteria2://${encodeUriComponent(password)}@${uriHost(address)}:$port/$queryString#$encRem"
+            val query = linkedMapOf<String, String>()
+            val obfs = if (singBox) ob.optJSONObject("obfs") else legacyHy2?.optJSONObject("obfs")
+            putIfNotBlank(query, "obfs", obfs?.optString("type", ""))
+            putIfNotBlank(query, "obfs-password", obfs?.optString("password", ""))
+            if (singBox) {
+                val tls = ob.optJSONObject("tls")
+                putIfNotBlank(query, "sni", tls?.optString("server_name", ""))
+                putIfNotBlank(query, "alpn", jsonStringList(tls?.opt("alpn")))
+                if (tls?.optBoolean("insecure", false) == true) query["insecure"] = "1"
+            } else {
+                val tls = stream?.optJSONObject("tlsSettings")
+                putIfNotBlank(query, "sni", tls?.optString("serverName", ""))
+                putIfNotBlank(query, "alpn", jsonStringList(tls?.opt("alpn")))
+                if (tls?.optBoolean("allowInsecure", false) == true) query["insecure"] = "1"
+            }
+            val finalRem = ob.optString("tag", "").ifBlank { ob.optString("remarks", "").ifBlank { rem } }
+            val queryString = encodedQuery(query).takeIf(String::isNotEmpty)?.let { "?$it" }.orEmpty()
+            "hysteria2://${encodeUriComponent(password)}@${uriHost(address)}:$port/$queryString#" +
+                encodeUriComponent(finalRem)
         } catch (_: Exception) { null }
     }
 
@@ -793,6 +1135,7 @@ object LinkConverter {
             val port = ob.optInt("server_port")
             val uuid = ob.optString("uuid")
             val password = ob.optString("password")
+            if (address.isBlank() || port !in 1..65535 || uuid.isBlank() || password.isBlank()) return null
 
             val query = mutableMapOf<String, String>()
             val cc = ob.optString("congestion_control")
@@ -817,12 +1160,12 @@ object LinkConverter {
             }
 
             val queryStr = query.toList().sortedBy { it.first }.joinToString("&") {
-                "${it.first}=${URLEncoder.encode(it.second, "UTF-8")}"
+                "${it.first}=${encodeUriComponent(it.second)}"
             }
             val queryString = if (queryStr.isNotEmpty()) "?$queryStr" else ""
 
             val finalRem = if (ob.has("tag")) ob.getString("tag") else (if (ob.has("remarks")) ob.getString("remarks") else rem)
-            val encRem = URLEncoder.encode(finalRem, "UTF-8").replace("+", "%20")
+            val encRem = encodeUriComponent(finalRem)
 
             "tuic://${encodeUriComponent(uuid)}:${encodeUriComponent(password)}@${uriHost(address)}:$port$queryString#$encRem"
         } catch (e: Exception) { null }

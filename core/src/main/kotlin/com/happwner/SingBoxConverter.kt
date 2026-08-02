@@ -15,7 +15,8 @@ object SingBoxConverter {
     )
     private val XRAY_SECURITY_OK = setOf("", "none", "tls", "reality")
     private val XRAY_PROTOCOLS_PROXY = setOf(
-        "vless", "vmess", "trojan", "shadowsocks", "socks", "http", "wireguard"
+        "vless", "vmess", "trojan", "shadowsocks", "hysteria", "hysteria2",
+        "socks", "http", "wireguard"
     )
     private val XRAY_PROTOCOLS_AUX = setOf("freedom", "blackhole", "dns", "loopback")
 
@@ -802,7 +803,7 @@ object SingBoxConverter {
     }
 
     private fun getTcpHttpRequest(stream: JSONObject): JSONObject? {
-        val net = stream.optString("network", "tcp").ifEmpty { "tcp" }
+        val net = normalizedXrayNetwork(stream)
         if (net !in setOf("tcp", "raw", "")) return null
         val ts = stream.optJSONObject("tcpSettings")
             ?: stream.optJSONObject("rawSettings")
@@ -827,8 +828,12 @@ object SingBoxConverter {
         if (proto !in XRAY_PROTOCOLS_PROXY && proto !in XRAY_PROTOCOLS_AUX) return false
         if (proto in XRAY_PROTOCOLS_AUX || proto == "wireguard") return true
         val stream = o.optJSONObject("streamSettings") ?: JSONObject()
-        val net = stream.optString("network", "tcp").ifEmpty { "tcp" }
-        if (net !in XRAY_TRANSPORTS_OK) return false
+        val net = normalizedXrayNetwork(stream)
+        if (proto in setOf("hysteria", "hysteria2")) {
+            if (net != "hysteria") return false
+        } else if (net !in XRAY_TRANSPORTS_OK) {
+            return false
+        }
         if (net == "tcp" || net == "raw") {
             val ts = stream.optJSONObject("tcpSettings") ?: stream.optJSONObject("rawSettings")
             val hdrType = ts?.optJSONObject("header")?.optString("type", "none")?.ifEmpty { "none" }
@@ -870,7 +875,7 @@ object SingBoxConverter {
 
     private fun firstUser(o: JSONObject): JSONObject? {
         val settings = o.optJSONObject("settings") ?: return null
-        val vnext = settings.optJSONArray("vnext") ?: return null
+        val vnext = settings.optJSONArray("vnext") ?: return settings
         val first = vnext.optJSONObject(0) ?: return null
         val users = first.optJSONArray("users") ?: return null
         return users.optJSONObject(0)
@@ -878,8 +883,19 @@ object SingBoxConverter {
 
     private fun firstServer(o: JSONObject): JSONObject? {
         val settings = o.optJSONObject("settings") ?: return null
-        val servers = settings.optJSONArray("servers") ?: return null
+        val servers = settings.optJSONArray("servers") ?: return settings
         return servers.optJSONObject(0)
+    }
+
+    private fun normalizedXrayNetwork(stream: JSONObject): String {
+        val raw = stream.optString("method", "").takeIf(String::isNotBlank)
+            ?: stream.optString("network", "tcp").ifEmpty { "tcp" }
+        return when (raw.lowercase()) {
+            "websocket" -> "ws"
+            "mkcp" -> "kcp"
+            "raw" -> "tcp"
+            else -> raw.lowercase()
+        }
     }
 
     private data class DomainSplit(
@@ -1051,7 +1067,11 @@ object SingBoxConverter {
             tls.put("utls", utls)
             val reality = JSONObject()
             reality.put("enabled", true)
-            reality.put("public_key", rs.optString("publicKey", ""))
+            reality.put(
+                "public_key",
+                rs.optString("password", "").takeIf(String::isNotBlank)
+                    ?: rs.optString("publicKey", ""),
+            )
             reality.put("short_id", rs.optString("shortId", ""))
             tls.put("reality", reality)
             return tls
@@ -1126,8 +1146,7 @@ object SingBoxConverter {
 
     // streamSettings to the transport block (ws/grpc/http/httpupgrade/quic/tcp-http)
     private fun convTransport(stream: JSONObject): JSONObject? {
-        var net = stream.optString("network", "tcp").ifEmpty { "tcp" }
-        if (net == "raw") net = "tcp"
+        val net = normalizedXrayNetwork(stream)
 
         // tcp + http header -> http transport
         if (net == "tcp") {
@@ -1383,13 +1402,14 @@ object SingBoxConverter {
 
         // VLESS / VMess: server/uuid + flow or vmess security, tls, transport
         if (proto == "vless" || proto == "vmess") {
-            val vnext = settings.optJSONArray("vnext")?.optJSONObject(0) ?: JSONObject()
-            val user = vnext.optJSONArray("users")?.optJSONObject(0) ?: JSONObject()
+            val legacyServer = settings.optJSONArray("vnext")?.optJSONObject(0)
+            val endpoint = legacyServer ?: settings
+            val user = legacyServer?.optJSONArray("users")?.optJSONObject(0) ?: settings
             val sb = JSONObject()
             sb.put("type", proto)
             sb.put("tag", tag)
-            sb.put("server", vnext.opt("address") ?: JSONObject.NULL)
-            sb.put("server_port", vnext.opt("port") ?: JSONObject.NULL)
+            sb.put("server", endpoint.opt("address") ?: JSONObject.NULL)
+            sb.put("server_port", endpoint.opt("port") ?: JSONObject.NULL)
             sb.put("uuid", user.opt("id") ?: JSONObject.NULL)
             if (proto == "vless") {
                 val flowRaw = user.optString("flow", "")
@@ -1425,7 +1445,7 @@ object SingBoxConverter {
 
         // Trojan
         if (proto == "trojan") {
-            val srv = settings.optJSONArray("servers")?.optJSONObject(0) ?: JSONObject()
+            val srv = settings.optJSONArray("servers")?.optJSONObject(0) ?: settings
             val sb = JSONObject()
             sb.put("type", "trojan")
             sb.put("tag", tag)
@@ -1443,7 +1463,7 @@ object SingBoxConverter {
 
         // Shadowsocks (+ plugin / udp-over-tcp)
         if (proto == "shadowsocks") {
-            val srv = settings.optJSONArray("servers")?.optJSONObject(0) ?: JSONObject()
+            val srv = settings.optJSONArray("servers")?.optJSONObject(0) ?: settings
             val rawMethod = srv.optString("method", "aes-256-gcm").ifEmpty { "aes-256-gcm" }
             val method = SS_METHOD_ALIAS[rawMethod] ?: rawMethod
             val sb = JSONObject()
@@ -1474,6 +1494,27 @@ object SingBoxConverter {
                 uot.put("version", ver)
                 sb.put("udp_over_tcp", uot)
             }
+            applyProxySettings(sb, o)
+            applySockopt(sb, stream)
+            return OutboundResult(sb, "proxy")
+        }
+
+        // Current Xray Hysteria v2 protocol + hysteria transport.
+        if (proto == "hysteria" || proto == "hysteria2") {
+            val srv = settings.optJSONArray("servers")?.optJSONObject(0) ?: settings
+            val hysteria = stream.optJSONObject("hysteriaSettings")
+                ?: stream.optJSONObject("hy2Settings")
+                ?: JSONObject()
+            val sb = JSONObject()
+            sb.put("type", "hysteria2")
+            sb.put("tag", tag)
+            sb.put("server", srv.opt("address") ?: JSONObject.NULL)
+            sb.put("server_port", srv.opt("port") ?: JSONObject.NULL)
+            val password = hysteria.optString("auth", "").takeIf(String::isNotBlank)
+                ?: hysteria.optString("password", "")
+            sb.put("password", password)
+            val tls = convTls(stream)
+            if (tls != null) sb.put("tls", tls)
             applyProxySettings(sb, o)
             applySockopt(sb, stream)
             return OutboundResult(sb, "proxy")

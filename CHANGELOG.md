@@ -6,6 +6,14 @@ All notable changes to Happwner PC are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- hardened `JSON → URI` conversion for current and legacy Xray and sing-box schemas;
+- preserved transport, TLS, Reality, obfuscation, and VMess security fields instead of silently losing them;
+- pretty-printed JSON and every legacy server/user entry are now converted;
+- malformed or unsupported proxy outbounds no longer cause a partially converted subscription with missing profiles;
+- current Xray Hysteria 2 outbounds are now handled by both URI and sing-box conversion.
+
 ## 0.1.6 - 2026-08-01
 
 First stable public release, now with automated Windows packages.
